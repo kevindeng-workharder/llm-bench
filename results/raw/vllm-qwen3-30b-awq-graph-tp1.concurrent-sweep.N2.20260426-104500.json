@@ -1,0 +1,48 @@
+{
+  "config_name": "vllm-qwen3-30b-awq-graph-tp1",
+  "workload": "concurrent-sweep",
+  "ts": "2026-04-26T10:45:00",
+  "host": "kevin-System-Product-Name",
+  "params": {
+    "n_clients": 2,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-30b-a3b"
+  },
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "n_chunks": 70.95,
+      "ttft_s": 2.18,
+      "elapsed_s": 4.3,
+      "tps": 17.04,
+      "garbage": false,
+      "output_head": "<correct output truncated>",
+      "prompt_short": "prompt[0]"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "n_chunks": 70.95,
+      "ttft_s": 2.18,
+      "elapsed_s": 4.3,
+      "tps": 17.04,
+      "garbage": false,
+      "output_head": "<correct output truncated>",
+      "prompt_short": "prompt[1]"
+    }
+  ],
+  "summary": {
+    "wall_s": 4.3,
+    "total_tokens": 141,
+    "agg_tps": 33.0,
+    "avg_per_client_tps": 17.04,
+    "ok_clients": 2,
+    "garbage_clients": 0
+  },
+  "notes": "N=2 happened to be lucky in this run — bug is non-deterministic, see N>=4"
+}

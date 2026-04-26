@@ -1,0 +1,76 @@
+# Test matrix — declare every (server config × workload × N) combination
+# the runner should sweep through.
+#
+# A "server" entry describes how to start one backend in one config.
+# A "workload" entry describes the request pattern (concurrency, tokens, …).
+# The runner pivots: for each server, bring it up, sweep all workloads' Ns
+# against it, tear down, move on.
+
+servers:
+  # ---- llama.cpp baseline (single GPU, MXFP4 MoE — verified correct) ----
+  - name: llamacpp-qwen36-35b-mxfp4-tp1
+    engine: llama.cpp
+    model: Qwen3.6-35B-A3B-MXFP4_MOE
+    quantization: mxfp4
+    compilation: graph     # llama.cpp HIP_GRAPHS=ON
+    tp: 1
+    served_model_name: qwen36-a3b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/llamacpp/qwen36-35b-mxfp4-tp1.sh
+    ready_timeout_s: 300
+
+  # ---- vLLM Qwen3-30B-A3B AWQ (compressed-tensors W4A16) ----
+  - name: vllm-qwen3-30b-awq-eager-tp1
+    engine: vllm
+    model: Qwen3-30B-A3B-Instruct-2507-AWQ
+    quantization: int4_w4a16
+    compilation: eager
+    tp: 1
+    served_model_name: qwen3-30b-a3b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-eager-tp1.sh
+
+  - name: vllm-qwen3-30b-awq-graph-tp1
+    engine: vllm
+    model: Qwen3-30B-A3B-Instruct-2507-AWQ
+    quantization: int4_w4a16
+    compilation: graph
+    tp: 1
+    served_model_name: qwen3-30b-a3b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-graph-tp1.sh
+
+  - name: vllm-qwen3-30b-awq-eager-tp1-serial
+    engine: vllm
+    model: Qwen3-30B-A3B-Instruct-2507-AWQ
+    quantization: int4_w4a16
+    compilation: eager
+    tp: 1
+    notes: "max-num-seqs=1 workaround for fused-MoE batched bug"
+    served_model_name: qwen3-30b-a3b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-eager-tp1-serial.sh
+
+  - name: vllm-qwen3-30b-awq-graph-tp2
+    engine: vllm
+    model: Qwen3-30B-A3B-Instruct-2507-AWQ
+    quantization: int4_w4a16
+    compilation: graph
+    tp: 2
+    served_model_name: qwen3-30b-a3b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-graph-tp2.sh
+
+  # ---- vLLM control: dense Qwen3-4B (verifies non-MoE batching works) ----
+  - name: vllm-qwen3-4b-fp16-graph-tp1
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1.sh
+
+workloads:
+  - name: concurrent-sweep
+    description: "Standard concurrent stress: 16 unique prompts, deterministic sampling"
+    n_clients: [1, 2, 4, 8]
+    max_tokens: 80
+    temperature: 0.0
+    top_p: 1.0
+    unique_prompts: true

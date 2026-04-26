@@ -1,0 +1,48 @@
+{
+  "config_name": "vllm-qwen3-30b-awq-eager-tp1",
+  "workload": "concurrent-sweep",
+  "ts": "2026-04-26T10:45:00",
+  "host": "kevin-System-Product-Name",
+  "params": {
+    "n_clients": 2,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-30b-a3b"
+  },
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "n_chunks": 86.05199999999999,
+      "ttft_s": 11.5,
+      "elapsed_s": 121.2,
+      "tps": 0.78,
+      "garbage": true,
+      "output_head": "!!!!!",
+      "prompt_short": "prompt[0]"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "n_chunks": 86.05199999999999,
+      "ttft_s": 11.5,
+      "elapsed_s": 121.2,
+      "tps": 0.78,
+      "garbage": false,
+      "output_head": "<correct output truncated>",
+      "prompt_short": "prompt[1]"
+    }
+  ],
+  "summary": {
+    "wall_s": 121.2,
+    "total_tokens": 172,
+    "agg_tps": 1.42,
+    "avg_per_client_tps": 0.78,
+    "ok_clients": 2,
+    "garbage_clients": 1
+  },
+  "notes": "N>=2 triggers fused-MoE batched bug — only 1 client returns valid text"
+}

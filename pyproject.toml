@@ -1,0 +1,12 @@
+[project]
+name = "llm-bench"
+version = "0.1.0"
+description = "Concurrent throughput benchmarks for vLLM and llama.cpp on riscv64 + ROCm"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.25",
+    "pyyaml>=6.0",
+]
+
+[tool.setuptools]
+packages = ["runner", "workloads"]
