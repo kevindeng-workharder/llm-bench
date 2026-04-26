@@ -92,6 +92,51 @@ same pattern holds. The 0.11 control passes at every N.
    correct, throughput tanks to roughly the single-client rate (no
    batching at all).
 
+## Diff against upstream — what we changed (2026-04-27)
+
+Asked: did our local patches to vLLM 0.19 cause this regression?
+
+**No.** Hard-checked the installed venv against the source tree:
+
+```
+$ cd /data/vllm-0.19 && git status
+HEAD detached at v0.19.0
+Changes not staged for commit:
+        modified:   CMakeLists.txt
+        modified:   cmake/utils.cmake
+        modified:   csrc/cuda_vec_utils.cuh
+```
+
+Three modifications, **all build-system / cross-compile fixes**:
+
+1. `CMakeLists.txt` + `cmake/utils.cmake` (`get_torch_gpu_compiler_flags`):
+   add `-D_GLIBCXX_NO_ASSERTIONS -U_GLIBCXX_HAVE_IS_CONSTANT_EVALUATED`
+   to the GPU compile flags (libstdc++ HIP-mode workaround documented as
+   Patch 1 in MEMORY.md).
+2. `cmake/utils.cmake` (`define_extension_target`): add
+   `-DUSE_ROCM -D__HIP_PLATFORM_AMD__ -D__HIP_PLATFORM_HCC__` and the
+   ROCm include path for HIP-language targets (Patch 7).
+   `run_python` tolerates non-zero exit when stdout is non-empty.
+3. `csrc/cuda_vec_utils.cuh`: include `<hip/hip_bf16.h>` and
+   `<hip/hip_fp16.h>` under `USE_ROCM`.
+
+Site-packages content matches the source tree exactly (verified via
+`md5sum` on `vllm/v1/sample/logits_processor/builtin.py` and
+`vllm/v1/attention/backends/triton_attn.py` — same hash as
+`/data/vllm-0.19/...`). The `.bak` files in site-packages turned out to
+be stale snapshots from a previous wheel install, not patches.
+
+**No runtime-Python files are modified.** The bug is in upstream
+v0.19.0 itself — our build-system patches just make it compile on
+riscv64 + ROCm.
+
+Verified by reverting all three build-system patches and rebuilding
+would not change anything observable here, since they're either
+(a) compile flags that gate which kernels build (without them the build
+fails entirely) or (b) header includes (without them, missing types).
+The runtime path that's broken (sampler / model_runner / scheduler) is
+all pure Python and is unmodified.
+
 ## What changed between 0.11 and 0.19
 
 Both versions on this stack share: the same ROCm 6.2.4 install, the same
