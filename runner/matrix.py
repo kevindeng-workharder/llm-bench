@@ -11,6 +11,7 @@ Usage:
 """
 from __future__ import annotations
 import argparse
+import fnmatch
 import json
 import sys
 import time
@@ -30,7 +31,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("config", type=Path)
     ap.add_argument("--only-server", default=None,
-                    help="Run just this server config (matches `name:` field)")
+                    help="Run only servers whose name matches this glob (fnmatch). "
+                         "Examples: 'vllm-qwen3-4b-*' or '*-tp2' or 'vllm-*-graph-*'.")
     ap.add_argument("--only-workload", default=None,
                     help="Run just this workload config")
     ap.add_argument("--dry-run", action="store_true")
@@ -41,7 +43,7 @@ def main():
     workloads = plan["workloads"]
 
     if args.only_server:
-        servers = [s for s in servers if s["name"] == args.only_server]
+        servers = [s for s in servers if fnmatch.fnmatch(s["name"], args.only_server)]
     if args.only_workload:
         workloads = [w for w in workloads if w["name"] == args.only_workload]
 

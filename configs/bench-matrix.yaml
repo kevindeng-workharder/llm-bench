@@ -1,24 +1,89 @@
 # Test matrix — declare every (server config × workload × N) combination
 # the runner should sweep through.
-#
-# A "server" entry describes how to start one backend in one config.
-# A "workload" entry describes the request pattern (concurrency, tokens, …).
-# The runner pivots: for each server, bring it up, sweep all workloads' Ns
-# against it, tear down, move on.
 
 servers:
-  # ---- llama.cpp baseline (single GPU, MXFP4 MoE — verified correct) ----
+  # ====================================================================
+  # llama.cpp baseline (single GPU, MXFP4 MoE — verified correct at all N)
+  # ====================================================================
   - name: llamacpp-qwen36-35b-mxfp4-tp1
     engine: llama.cpp
     model: Qwen3.6-35B-A3B-MXFP4_MOE
     quantization: mxfp4
-    compilation: graph     # llama.cpp HIP_GRAPHS=ON
+    compilation: graph
     tp: 1
     served_model_name: qwen36-a3b
     launch_remote_path: /home/ubuntu/llm-bench/servers/llamacpp/qwen36-35b-mxfp4-tp1.sh
     ready_timeout_s: 300
 
-  # ---- vLLM Qwen3-30B-A3B AWQ (compressed-tensors W4A16) ----
+  # ====================================================================
+  # vLLM dense models (the "control" — should batch correctly)
+  # ====================================================================
+  - name: vllm-qwen3-0_6b-fp16-graph-tp1
+    engine: vllm
+    model: Qwen3-0.6B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    served_model_name: qwen3-0_6b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-0_6b-fp16-graph-tp1.sh
+
+  - name: vllm-qwen3-4b-fp16-eager-tp1
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: eager
+    tp: 1
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-eager-tp1.sh
+
+  - name: vllm-qwen3-4b-fp16-graph-tp1
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1.sh
+
+  - name: vllm-qwen3-4b-fp16-graph-tp1-vllm011
+    engine: vllm
+    vllm_version: "0.11"
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    notes: "Control: same model+config but on the legacy 0.11 venv to test the 0.19-regression hypothesis"
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-vllm011.sh
+
+  - name: vllm-qwen3-4b-fp16-graph-tp2
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 2
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp2.sh
+
+  - name: vllm-qwen2_5-14b-fp16-graph-tp2
+    engine: vllm
+    model: Qwen2.5-14B-Instruct
+    quantization: fp16
+    compilation: graph
+    tp: 2
+    served_model_name: qwen2_5-14b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen2_5-14b-fp16-graph-tp2.sh
+
+  # NOTE: Qwen3.6-27B-FP8 is actually qwen3_vl (multimodal) — needs an
+  # mm-aware launcher (analogous to launch-gemma4-mm.sh) with
+  # --limit-mm-per-prompt etc. Disabled until we add that launcher.
+  # - name: vllm-qwen3_6-27b-fp8-graph-tp1   # TODO: needs multimodal launcher
+  # - name: vllm-qwen3_6-27b-fp8-graph-tp2   # TODO: needs multimodal launcher
+
+  # ====================================================================
+  # vLLM Qwen3-30B-A3B AWQ (MoE, compressed-tensors W4A16) — KNOWN BUGGY
+  #   Batched fused-MoE produces garbage at N>=2. See docs/vllm-moe-batched-bug.md.
+  # ====================================================================
   - name: vllm-qwen3-30b-awq-eager-tp1
     engine: vllm
     model: Qwen3-30B-A3B-Instruct-2507-AWQ
@@ -55,16 +120,6 @@ servers:
     tp: 2
     served_model_name: qwen3-30b-a3b
     launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-graph-tp2.sh
-
-  # ---- vLLM control: dense Qwen3-4B (verifies non-MoE batching works) ----
-  - name: vllm-qwen3-4b-fp16-graph-tp1
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1.sh
 
 workloads:
   - name: concurrent-sweep

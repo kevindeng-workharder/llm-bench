@@ -121,31 +121,60 @@ class RemoteServer:
                   file=sys.stderr)
 
     def kill_remote(self):
-        # Two passes: pkill the python/llama-server, then sudo-kill any stuck
-        # VLLM::EngineCore subprocess that survives.
+        # Multi-pass cleanup. Order matters because VLLM 0.19's V1 engine
+        # spawns these distinct process families:
+        #   - api_server (the python that we ran via launch script)
+        #   - VLLM::EngineCore  (single child of api_server, holds the model)
+        #   - WorkerProc (one per TP rank when TP>1, holds the GPU shard)
+        # llama.cpp leaves one llama-server process.
+        # pkill -f matches against the cmdline; the engine + worker procs use
+        # `prctl(PR_SET_NAME)` so their `comm` is short ("VLLM::Eng",
+        # "Worker") but their cmdline is the original python invocation, so
+        # we have to grep against /proc/<pid>/comm to catch them.
         _ssh("pkill -9 -f 'vllm.entrypoints'; pkill -9 -f 'llama-server'; true",
              vm_port=self.vm_port, vm_host=self.vm_host, check=False)
         time.sleep(1)
-        _ssh("sudo kill -9 $(pgrep -f 'VLLM::Eng' 2>/dev/null) 2>/dev/null; true",
-             vm_port=self.vm_port, vm_host=self.vm_host, check=False)
+        _ssh(
+            "sudo kill -9 "
+            "$(for p in /proc/[0-9]*; do "
+            "    [ -r $p/comm ] && grep -qE 'VLLM::|Worker|EngineCore' $p/comm 2>/dev/null && "
+            "    echo ${p#/proc/}; done) 2>/dev/null; true",
+            vm_port=self.vm_port, vm_host=self.vm_host, check=False)
         time.sleep(2)
 
     def _free_vram(self):
-        # Wait up to 30s for VRAM to drop below ~200 MB (post-cleanup baseline).
-        deadline = time.time() + 30
+        """Wait for ALL GPU cards to drop below 200 MB (post-cleanup baseline).
+
+        TP=2 runs leave VRAM held on both card0 and card1; TP=1 runs only
+        touch card0 but we still poll card1 in case a previous TP=2 run was
+        torn down imperfectly.
+        """
+        deadline = time.time() + 60
+        cards = []
+        # Discover cards once.
+        r = _ssh("ls -d /sys/class/drm/card[0-9]*/device/mem_info_vram_used 2>/dev/null",
+                 vm_port=self.vm_port, vm_host=self.vm_host,
+                 capture=True, check=False)
+        cards = [c for c in r.stdout.split() if c]
+        if not cards:
+            return
         while time.time() < deadline:
-            r = _ssh("cat /sys/class/drm/card0/device/mem_info_vram_used 2>/dev/null",
+            r = _ssh("for c in " + " ".join(cards) + "; do cat $c 2>/dev/null; done",
                      vm_port=self.vm_port, vm_host=self.vm_host,
                      capture=True, check=False)
             try:
-                used = int(r.stdout.strip())
+                useds = [int(x) for x in r.stdout.split()]
             except Exception:
                 return
-            if used < 200 * 1024 * 1024:
+            max_used = max(useds) if useds else 0
+            if max_used < 200 * 1024 * 1024:
                 return
-            print(f"[server:{self.name}] waiting for VRAM release ({used/1e9:.1f}GB used)…",
+            print(f"[server:{self.name}] waiting for VRAM release "
+                  f"(per-card MB used: {[round(u/1e6) for u in useds]})…",
                   file=sys.stderr)
             time.sleep(2)
+        print(f"[server:{self.name}] WARNING: VRAM did not free within 60s",
+              file=sys.stderr)
 
     # --- Tunnel ---
     def _open_tunnel(self):

@@ -49,18 +49,30 @@ python3 -m runner.report results/raw/ > results/$(date +%F).md
 
 ## Current status (2026-04-26)
 
-- vLLM **graph** mode is dramatically faster than eager (~21× single-request
-  decode on Qwen3-30B AWQ).
-- vLLM **batched fused-MoE** is broken on this stack: at any N≥2, only one
-  request in the batch produces correct output; others stream `!` forever.
-  See `docs/vllm-moe-batched-bug.md`.
+**Headline finding: vLLM 0.19 has a batched-correctness regression on this
+stack.** It hits dense fp16 models AND quantized MoE — N≥4 requests in a
+batch produce some `!`-only streams. vLLM 0.11 on the same VM, same model,
+same flags is correct at all N. Full write-up at
+[`docs/vllm-019-batched-bug.md`](docs/vllm-019-batched-bug.md).
+
+- vLLM 0.19 graph mode is fast on **single-request** decode (~21× eager,
+  ~1.87× the 0.11 baseline). At N≥2 / N≥4 some clients stream garbage
+  (token `!` repeating).
 - llama.cpp is correct at all N, peak aggregate ~16 tok/s at N=4.
+- The previous "163 tok/s @ N=100" number from the 0.19 era was inflated
+  by garbage tokens being counted in the throughput total — earlier bench
+  scripts measured tok/s only and never inspected output content.
 
-| Engine + config | N=1 | N=2 | N=4 | N=8 | garbage |
+| Engine + config | N=1 | N=2 | N=4 | N=8 | garbage at N=8 |
 |---|---|---|---|---|---|
-| llama.cpp Qwen3.6-35B MXFP4 | 12.0 | – | 16.0 | 9.9 | 0/N |
-| vLLM Qwen3-30B AWQ eager | 1.07 | 1.42 | – | – | 1/2, etc. |
-| vLLM Qwen3-30B AWQ graph | 23.2 | 33.0 | 64.6 | 9.5 | 2/4, 6/8 |
-| vLLM Qwen3-30B AWQ graph + max-num-seqs=1 | – | – | 0.9 | – | **0/4** |
+| llama.cpp Qwen3.6-35B MXFP4 | 12.0 | – | 16.0 | 9.9 | 0/8 ✅ |
+| **vLLM 0.11** Qwen3-4B fp16 graph TP1 (control) | 19.6 | 30.0 | 51.2 | **71.4** | **0/8 ✅** |
+| vLLM 0.19 Qwen3-0.6B fp16 graph TP1 | 36.1 | 58.9 | 117 | 216 | 6/8 ❌ |
+| vLLM 0.19 Qwen3-4B fp16 eager TP1 | 3.3 | 7.1 | 14.1 | 25.4 | 6/8 ❌ |
+| vLLM 0.19 Qwen3-4B fp16 graph TP1 | 36.6 | 41.2 | 115 | 213 | 5/8 ❌ |
+| vLLM 0.19 Qwen3-4B fp16 graph TP2 | 13.7 | 20.2 | 37.5 | 88.8 | 5/8 ❌ |
+| vLLM 0.19 Qwen2.5-14B fp16 graph TP2 | 7.6 | 14.1 | 28.0 | 37.7 | 7/8 ❌ |
+| vLLM 0.19 Qwen3-30B AWQ graph TP1 | 23.2 | 33.0 | 64.6 | 9.5 | 6/8 ❌ |
+| vLLM 0.19 Qwen3-30B AWQ + max-num-seqs=1 (workaround) | – | – | 0.9 | – | 0/4 ✅ |
 
-(numbers are aggregate tok/s)
+(aggregate tok/s; ❌ rows have inflated numbers — see garbage column.)

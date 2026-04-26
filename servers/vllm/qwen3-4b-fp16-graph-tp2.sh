@@ -1,11 +1,10 @@
 #!/bin/bash
-# vLLM graph mode, single 7900 XTX, Qwen3-4B (DENSE fp16). The canonical
-# control config — verified previously to batch correctly. Thin wrapper
-# around the canonical /home/ubuntu/vllm-serve/launch-server.sh.
+# vLLM graph mode, DUAL 7900 XTX (TP=2), Qwen3-4B (DENSE fp16). Tests RCCL
+# all-reduce + cross-GPU communication path on this riscv64+ROCm stack.
 exec env \
     MODEL=/data/Qwen3-4B \
     SERVED_NAME=qwen3-4b \
-    TP_SIZE=1 \
+    TP_SIZE=2 \
     MAX_MODEL_LEN=4096 \
     DTYPE=float16 \
     GPU_MEM_UTIL=0.85 \

@@ -1,0 +1,47 @@
+{
+  "params": {
+    "n_clients": 2,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen2_5-14b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-26T23:29:37",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 0.7894041538238525,
+      "elapsed_s": 11.118803262710571,
+      "tps": 7.195018934123796,
+      "garbage": false,
+      "output_head": "Certainly! Below is a simple Python function that takes a string as input and re"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 1.5413084030151367,
+      "elapsed_s": 11.374155282974243,
+      "tps": 7.0334893457759,
+      "garbage": false,
+      "output_head": "The Rust borrow checker is a critical component of the Rust compiler that ensure"
+    }
+  ],
+  "summary": {
+    "wall_s": 11.37,
+    "total_tokens": 160,
+    "agg_tps": 14.07,
+    "avg_per_client_tps": 7.11,
+    "ok_clients": 2,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen2_5-14b-fp16-graph-tp2",
+  "workload": "concurrent-sweep"
+}

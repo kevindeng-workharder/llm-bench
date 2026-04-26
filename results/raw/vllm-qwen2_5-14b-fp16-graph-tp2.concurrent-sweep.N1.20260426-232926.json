@@ -1,0 +1,36 @@
+{
+  "params": {
+    "n_clients": 1,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen2_5-14b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-26T23:29:26",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 0.8679099082946777,
+      "elapsed_s": 10.51075005531311,
+      "tps": 7.611255103489076,
+      "garbage": false,
+      "output_head": "Certainly! Below is a simple Python function that takes a string as input and re"
+    }
+  ],
+  "summary": {
+    "wall_s": 10.51,
+    "total_tokens": 80,
+    "agg_tps": 7.61,
+    "avg_per_client_tps": 7.61,
+    "ok_clients": 1,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen2_5-14b-fp16-graph-tp2",
+  "workload": "concurrent-sweep"
+}
