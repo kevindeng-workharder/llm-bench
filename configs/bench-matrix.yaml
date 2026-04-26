@@ -87,6 +87,16 @@ servers:
     served_model_name: qwen3-4b
     launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-prefill-decode-split.sh
 
+  - name: vllm-qwen3-4b-fp16-graph-tp1-019-no-async-sched
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    notes: "Probe D: --no-async-scheduling. Hypothesis: PR #27614 (default-on async sched) is the v0.19.0 regression vector."
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-async-sched.sh
+
   - name: vllm-qwen3-4b-fp16-graph-tp2
     engine: vllm
     model: Qwen3-4B

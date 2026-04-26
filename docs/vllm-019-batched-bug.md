@@ -166,6 +166,7 @@ Qwen3-4B fp16 graph TP1 setup. All four numbers below are
 | **B** | `VLLM_ATTENTION_BACKEND=TRITON_ATTN` | 0/1 | 1/2 | 2/4 | 6/8 |
 | **C** | `VLLM_V1_USE_PREFILL_DECODE_ATTENTION=0` + `VLLM_ROCM_CUSTOM_PAGED_ATTN=0` | 0/1 | 0/2 | 2/4 | 6/8 |
 | **0.11** (control) | n/a | 0/1 | 0/2 | 0/4 | 0/8 |
+| **D** | `--no-async-scheduling` | 0/1 | 0/2 | **2/4** | **6/8** |
 
 Conclusions from the ablation:
 
@@ -175,14 +176,16 @@ Conclusions from the ablation:
   triton paged path (probe A is the worst at 7/8 garbage).
 - `prefill/decode split` doesn't matter (probe C with split off behaves
   like the default — both fail at N≥4).
-- This narrows the bug *out* of attention and *into* one of:
-  - **Sampler** (logits → token id) — V1 sampler was rewritten in 0.19
-  - **gpu_model_runner input packing** (how prefill+decode rows are
-    concatenated into the batched forward)
-  - **Embedding / RoPE position encoding** for batch > 1
-  - **Async scheduling** (0.19 logs `Asynchronous scheduling is enabled`,
-    a feature absent in 0.11)
-  - **`model.forward` in graph capture mode** at batch sizes ≥ 4
+- **Async scheduling is NOT the cause**. `--no-async-scheduling`
+  (probe D) keeps `'async_scheduling': False` and logs "Asynchronous
+  scheduling is disabled." — yet N=4 still 2/4 garbage and N=8 still
+  6/8. Strong signal that PR #27614 (which flipped async-sched to
+  default-on) is not our regression vector.
+- This narrows the bug *out* of attention AND scheduling; the most
+  likely remaining surface is the V1 input-batch / model-runner row
+  packing itself (`gpu_model_runner.py`'s `_prepare_inputs` /
+  `execute_model` family), or a graph-capture static-input rebind bug
+  for batch-size ≥ 4.
 
 The "**exactly one row of N gives valid output, the rest stream
 `!`** (token id 0) consistently across all backends" pattern strongly
@@ -193,6 +196,60 @@ uninitialized, and argmax(0...) → token 0 → `!`.
 That's most consistent with an off-by-one in the per-row scratch buffer
 or hidden-state addressing somewhere in the shared model-runner
 plumbing — not in any one attention kernel.
+
+## Upstream issues with the same shape (2026-04-27)
+
+The `!`-token degenerate-output failure mode at concurrent batch is a
+recurring vLLM bug pattern, NOT specific to riscv64 + ROCm. None of the
+following have a merged fix:
+
+| # | Title | Model | Hardware | vLLM | State |
+|---|---|---|---|---|---|
+| [#13035](https://github.com/vllm-project/vllm/issues/13035) | "Llama-3.1-405B-Instruct-FP8 only generates exclamation marks" | Llama 3.1 405B FP8 | NVIDIA | 0.6+ | "downgrade to 0.6.6 works" |
+| [#17652](https://github.com/vllm-project/vllm/issues/17652) | "Degradation of Qwen/Qwen3-30B-A3B performance depending on batch size" | Qwen3-30B-A3B | A100 | 0.8.5 | closed not-planned, repeating-token garbage at batch=50 |
+| [#18252](https://github.com/vllm-project/vllm/issues/18252) | "Qwen3 uses vllm automatic batch inference to abnormal output" | Qwen3-4B | A800 | 0.8.5 | closed stale, batched garbage / single OK |
+| [#27364](https://github.com/vllm-project/vllm/issues/27364) | "Qwen3-VL {4B,8B} FP8 returns only exclamation marks (`!!!!!...`)" | Qwen3-VL-{4,8}B-FP8 | Jetson Thor | 0.11 | open, FP8 KV cache angle |
+| [#36010](https://github.com/vllm-project/vllm/issues/36010) | "Qwen3.5-27B Batch Inference very slow / not working" | Qwen3.5-27B | NVIDIA | recent | open |
+| [#38527](https://github.com/vllm-project/vllm/issues/38527) | "Qwen3.5-35B-A3B-FP8 outputs all exclamation points" | Qwen3.5-35B-A3B-FP8 | RTX Pro 6000 Blackwell | 0.18.0 | open, no diagnosis yet |
+| [vllm-ascend #5313](https://github.com/vllm-project/vllm-ascend/issues/5313) | "Qwen3-VL-32B exclamation marks for video inference" | Qwen3-VL-32B | Ascend | 0.11.0 | open |
+
+Across these reports, the common thread is:
+
+- The target model is mid-large-ish (4B – 405B).
+- Batch-size 1 / single-request is fine.
+- Concurrent batched inference produces token-id-0 (`!`) loops or
+  near-degenerate single-token loops.
+- The bug spans NVIDIA (A100, A800, Blackwell, Jetson Thor), AMD ROCm
+  (us, gfx1100), and Ascend.
+- It spans dense fp16/bf16, FP8, GPTQ, AWQ — not quant-specific.
+- No fix has shipped. The matching issues are typically closed as
+  "stale" / "not planned" by the bot.
+
+Our setup adds one more data point to this pile: dense fp16 Qwen3-4B on
+v0.19.0 with riscv64 + ROCm gfx1100. The cross-section of (vLLM 0.19,
+plain dense, no spec-decoding, no MoE, no FP8/AWQ, no Mamba/GDN) is the
+cleanest minimal repro any of these reports has — so it's worth filing
+upstream as a fresh issue with the bench harness as the reproducer.
+
+## Suspects ruled in / out (final)
+
+| Suspect | Ruled out by | Status |
+|---|---|---|
+| MoE expert routing | dense Qwen3-4B fails | OUT |
+| Quantization (AWQ, GPTQ, FP8) | dense fp16 fails | OUT |
+| Triton attention kernel | TRITON_ATTN backend probe | OUT |
+| C++ rocm_paged_attention | `VLLM_ROCM_CUSTOM_PAGED_ATTN=0` probe | OUT |
+| Prefix caching | `--no-enable-prefix-caching` | OUT |
+| Chunked prefill | `--no-enable-chunked-prefill` | OUT |
+| AITER backends | `VLLM_ROCM_USE_AITER*=0` | OUT |
+| CUDA Graphs | `--enforce-eager` reproduces | OUT |
+| Sampler.py | diff vs 0.11 is refactoring only | OUT |
+| Async scheduling (PR #27614) | `--no-async-scheduling` reproduces | OUT |
+| Model Runner V2 (PR #25266) | env default-off in v0.19 | OUT |
+| Bookkeeping vectorization (PR #25801) | never merged | OUT |
+| Our 3 build-system patches | no runtime Python changed | OUT |
+| **V1 input-batch packing / persistent batch / `_prepare_inputs`** | not yet probed | **prime suspect** |
+| **CUDA-graph capture per batch-size shape** | partial-rule-out (eager also fails, lower threshold N≥2) | secondary |
 
 ## Reproduction
 
