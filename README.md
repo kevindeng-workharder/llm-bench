@@ -47,13 +47,28 @@ docs/               Bug write-ups, environment notes
 python3 -m runner.report results/raw/ > results/$(date +%F).md
 ```
 
-## Current status (2026-04-26)
+## Current status (2026-04-27)
 
-**Headline finding: vLLM 0.19 has a batched-correctness regression on this
-stack.** It hits dense fp16 models AND quantized MoE — N≥4 requests in a
-batch produce some `!`-only streams. vLLM 0.11 on the same VM, same model,
-same flags is correct at all N. Full write-up at
-[`docs/vllm-019-batched-bug.md`](docs/vllm-019-batched-bug.md).
+**ROOT CAUSE FOUND — fp16 NaN overflow inside vLLM 0.19's model forward
+on this stack.** Workaround: use `--dtype bfloat16`.
+
+```
+Qwen3-4B graph TP1 N=8:
+  --dtype float16  → 209 t/s aggregate, but 6/8 streams output `!!!!!`  ❌
+  --dtype bfloat16 → 212 t/s aggregate,  0/8 streams output garbage     ✅
+```
+
+Same model, same flags, same hardware, same vLLM 0.19 build. Bisected via
+in-place instrumentation of `gpu_model_runner.py`
+([`scripts/instruments/`](scripts/instruments/)) — pinpointed the NaN to
+`hidden_states[1, :]` and `hidden_states[3, :]` in the model output of
+the batched forward, before `compute_logits`. fp16 has 5-bit exponent
+(max ≈ 65 504); bfloat16 has the same 8-bit exponent as fp32 and doesn't
+overflow. vLLM 0.11 on the same stack with `--dtype float16` is correct,
+so vLLM 0.19 introduced (or wired in) a kernel that doesn't handle the
+fp16 numerical edge case.
+
+Full debugging chain in [`docs/vllm-019-batched-bug.md`](docs/vllm-019-batched-bug.md).
 
 - vLLM 0.19 graph mode is fast on **single-request** decode (~21× eager,
   ~1.87× the 0.11 baseline). At N≥2 / N≥4 some clients stream garbage

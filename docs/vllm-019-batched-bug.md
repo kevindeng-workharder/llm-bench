@@ -1,15 +1,70 @@
 # vLLM 0.19 batched-correctness regression on riscv64 + ROCm gfx1100
 
-**Status:** open. Verified 2026-04-26.
+**Status:** **ROOT CAUSE FOUND 2026-04-27 — fp16 NaN overflow inside the
+model forward.** Workaround: use `--dtype bfloat16`.
 
-**Earlier name was "AWQ MoE batched bug" — that title was wrong.** Initial
-investigation only ran the AWQ MoE model, where the bug appears at N≥2 and
-reads as "AWQ-only / MoE-only". After running the full matrix (5 dense
-fp16 configs across 4 model sizes + the two compilation modes + TP=1 and
-TP=2) the bug reproduces on **every single dense and MoE config** at N≥4
-under graph mode and at N≥2 under eager mode. Quantization, MoE routing,
-prefix caching, AITER, chunked prefill, cudagraphs, and TP-size are all
-ruled out as causes. The common factor is **vLLM 0.19** itself.
+## TL;DR
+
+Running vLLM v0.19.0 with `--dtype float16` on this stack causes
+**NaN to appear in the model's `hidden_states` output** for some rows
+of the batched forward when batch ≥ 2. Sample in-flight
+instrumentation:
+
+```
+[V11-HS] shape=[4, 2560]
+  max_per_row=[17.656, NaN, 38.5, NaN]
+  first3=[[0.017, -1.6, 3.55], [nan, nan, nan],
+          [-0.044, 1.05, -0.91], [nan, nan, nan]]
+
+[V10-PRE-SAMP] shape=[4, 151936]
+  max_per_row=[29.031, NaN, NaN, NaN]
+  argmax_per_row=[198, 0, 0, 0]
+```
+
+The NaN propagates through `compute_logits` → argmax(NaN-row) returns
+token id 0 → streamed as `!`. With `--dtype bfloat16`, `garbage` drops
+from 2/4 → **0/4** at N=4 (and 6/8 → 0/8 at N=8). Same model, same
+flags, same hardware.
+
+bfloat16 has the same exponent range as fp32 (8-bit), while fp16 is 5-bit
+(max ≈ 65 504). Some operation in the model's forward (most likely the
+attention softmax pre-scale, or an RMSNorm with very large activations)
+overflows fp16 → ±inf → propagates to NaN — but only for some batch rows
+because the broken matmul kernel only writes correct output for one row
+when batch ≥ 2 on this gfx1100 build.
+
+vLLM 0.11 with the same `--dtype float16` is correct on this stack — so
+either a numerical-stability subtract-max trick was removed in 0.19, or a
+new fp16 kernel was wired in for ROCm that doesn't guard against
+overflow.
+
+## How we got here (instrumentation chain)
+
+Pinpointed step-by-step by patching `gpu_model_runner.py` with
+`os.write(2, ...)` debug prints (raw fd write to bypass logger
+buffering):
+
+1. `_prepare_input_ids` fast-opt branch: `prev_sampled_token_ids[:4, 0]`
+   already had stride-2 zeros → bug is upstream of `_prepare_input_ids`.
+2. `_sample` output: `sampled_token_ids` has only row 0 with valid
+   token, rows 1–3 = 0 → bug is upstream of sampler.
+3. `_sample` input (logits): `max_per_row=[real, NaN, NaN, NaN]` →
+   logits already NaN. Bug is upstream of `compute_logits` (lm_head).
+4. `sample_hidden_states[logits_indices]`: rows 1, 3 are NaN. Bug is
+   inside `model.forward` itself.
+5. Switching `--dtype float16` → `--dtype bfloat16` makes garbage = 0/4
+   without any other code change. → fp16 overflow inside model forward.
+
+The instrumentation patches live in `scripts/instrument-019-v*.py` so
+the chain is reproducible.
+
+**Earlier write-ups in this file claimed the bug was MoE-specific, then
+sampler-specific, then attention-specific — all wrong. The real cause
+is fp16 numerical overflow inside the model forward, which the broken
+matmul / norm kernels on this gfx1100 build don't recover from for
+batch > 1.** The MoE / quant / attention symptoms were just the bug
+showing up in different downstream consumers of the corrupt
+hidden_states.
 
 ## The regression
 

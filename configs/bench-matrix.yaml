@@ -1,172 +1,153 @@
-# Test matrix — declare every (server config × workload × N) combination
-# the runner should sweep through.
-
 servers:
-  # ====================================================================
-  # llama.cpp baseline (single GPU, MXFP4 MoE — verified correct at all N)
-  # ====================================================================
-  - name: llamacpp-qwen36-35b-mxfp4-tp1
-    engine: llama.cpp
-    model: Qwen3.6-35B-A3B-MXFP4_MOE
-    quantization: mxfp4
-    compilation: graph
-    tp: 1
-    served_model_name: qwen36-a3b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/llamacpp/qwen36-35b-mxfp4-tp1.sh
-    ready_timeout_s: 300
-
-  # ====================================================================
-  # vLLM dense models (the "control" — should batch correctly)
-  # ====================================================================
-  - name: vllm-qwen3-0_6b-fp16-graph-tp1
-    engine: vllm
-    model: Qwen3-0.6B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    served_model_name: qwen3-0_6b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-0_6b-fp16-graph-tp1.sh
-
-  - name: vllm-qwen3-4b-fp16-eager-tp1
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: eager
-    tp: 1
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-eager-tp1.sh
-
-  - name: vllm-qwen3-4b-fp16-graph-tp1
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1.sh
-
-  - name: vllm-qwen3-4b-fp16-graph-tp1-vllm011
-    engine: vllm
-    vllm_version: "0.11"
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    notes: "Control: same model+config but on the legacy 0.11 venv to test the 0.19-regression hypothesis"
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-vllm011.sh
-
-  # ---- 0.19 ablation probes — toggle one suspected component at a time ----
-  - name: vllm-qwen3-4b-fp16-graph-tp1-019-no-custom-paged
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    notes: "Probe A: VLLM_ROCM_CUSTOM_PAGED_ATTN=0 — disable C++ rocm paged_attention, force triton paged"
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-custom-paged.sh
-
-  - name: vllm-qwen3-4b-fp16-graph-tp1-019-triton-attn
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    notes: "Probe B: VLLM_ATTENTION_BACKEND=TRITON_ATTN — pure-triton attention path"
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-triton-attn.sh
-
-  - name: vllm-qwen3-4b-fp16-graph-tp1-019-no-prefill-decode-split
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    notes: "Probe C: VLLM_V1_USE_PREFILL_DECODE_ATTENTION=0 + VLLM_ROCM_CUSTOM_PAGED_ATTN=0"
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-prefill-decode-split.sh
-
-  - name: vllm-qwen3-4b-fp16-graph-tp1-019-no-async-sched
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 1
-    notes: "Probe D: --no-async-scheduling. Hypothesis: PR #27614 (default-on async sched) is the v0.19.0 regression vector."
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-async-sched.sh
-
-  - name: vllm-qwen3-4b-fp16-graph-tp2
-    engine: vllm
-    model: Qwen3-4B
-    quantization: fp16
-    compilation: graph
-    tp: 2
-    served_model_name: qwen3-4b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp2.sh
-
-  - name: vllm-qwen2_5-14b-fp16-graph-tp2
-    engine: vllm
-    model: Qwen2.5-14B-Instruct
-    quantization: fp16
-    compilation: graph
-    tp: 2
-    served_model_name: qwen2_5-14b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen2_5-14b-fp16-graph-tp2.sh
-
-  # NOTE: Qwen3.6-27B-FP8 is actually qwen3_vl (multimodal) — needs an
-  # mm-aware launcher (analogous to launch-gemma4-mm.sh) with
-  # --limit-mm-per-prompt etc. Disabled until we add that launcher.
-  # - name: vllm-qwen3_6-27b-fp8-graph-tp1   # TODO: needs multimodal launcher
-  # - name: vllm-qwen3_6-27b-fp8-graph-tp2   # TODO: needs multimodal launcher
-
-  # ====================================================================
-  # vLLM Qwen3-30B-A3B AWQ (MoE, compressed-tensors W4A16) — KNOWN BUGGY
-  #   Batched fused-MoE produces garbage at N>=2. See docs/vllm-moe-batched-bug.md.
-  # ====================================================================
-  - name: vllm-qwen3-30b-awq-eager-tp1
-    engine: vllm
-    model: Qwen3-30B-A3B-Instruct-2507-AWQ
-    quantization: int4_w4a16
-    compilation: eager
-    tp: 1
-    served_model_name: qwen3-30b-a3b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-eager-tp1.sh
-
-  - name: vllm-qwen3-30b-awq-graph-tp1
-    engine: vllm
-    model: Qwen3-30B-A3B-Instruct-2507-AWQ
-    quantization: int4_w4a16
-    compilation: graph
-    tp: 1
-    served_model_name: qwen3-30b-a3b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-graph-tp1.sh
-
-  - name: vllm-qwen3-30b-awq-eager-tp1-serial
-    engine: vllm
-    model: Qwen3-30B-A3B-Instruct-2507-AWQ
-    quantization: int4_w4a16
-    compilation: eager
-    tp: 1
-    notes: "max-num-seqs=1 workaround for fused-MoE batched bug"
-    served_model_name: qwen3-30b-a3b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-eager-tp1-serial.sh
-
-  - name: vllm-qwen3-30b-awq-graph-tp2
-    engine: vllm
-    model: Qwen3-30B-A3B-Instruct-2507-AWQ
-    quantization: int4_w4a16
-    compilation: graph
-    tp: 2
-    served_model_name: qwen3-30b-a3b
-    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-graph-tp2.sh
-
+- compilation: graph
+  engine: llama.cpp
+  launch_remote_path: /home/ubuntu/llm-bench/servers/llamacpp/qwen36-35b-mxfp4-tp1.sh
+  model: Qwen3.6-35B-A3B-MXFP4_MOE
+  name: llamacpp-qwen36-35b-mxfp4-tp1
+  quantization: mxfp4
+  ready_timeout_s: 300
+  served_model_name: qwen36-a3b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-0_6b-fp16-graph-tp1.sh
+  model: Qwen3-0.6B
+  name: vllm-qwen3-0_6b-fp16-graph-tp1
+  quantization: fp16
+  served_model_name: qwen3-0_6b
+  tp: 1
+- compilation: eager
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-eager-tp1.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-eager-tp1
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-graph-tp1
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-vllm011.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-graph-tp1-vllm011
+  notes: 'Control: same model+config but on the legacy 0.11 venv to test the 0.19-regression
+    hypothesis'
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 1
+  vllm_version: '0.11'
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-custom-paged.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-graph-tp1-019-no-custom-paged
+  notes: "Probe A: VLLM_ROCM_CUSTOM_PAGED_ATTN=0 \u2014 disable C++ rocm paged_attention,\
+    \ force triton paged"
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-triton-attn.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-graph-tp1-019-triton-attn
+  notes: "Probe B: VLLM_ATTENTION_BACKEND=TRITON_ATTN \u2014 pure-triton attention\
+    \ path"
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-prefill-decode-split.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-graph-tp1-019-no-prefill-decode-split
+  notes: 'Probe C: VLLM_V1_USE_PREFILL_DECODE_ATTENTION=0 + VLLM_ROCM_CUSTOM_PAGED_ATTN=0'
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-async-sched.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-graph-tp1-019-no-async-sched
+  notes: 'Probe D: --no-async-scheduling. Hypothesis: PR #27614 (default-on async
+    sched) is the v0.19.0 regression vector.'
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp2.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-fp16-graph-tp2
+  quantization: fp16
+  served_model_name: qwen3-4b
+  tp: 2
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen2_5-14b-fp16-graph-tp2.sh
+  model: Qwen2.5-14B-Instruct
+  name: vllm-qwen2_5-14b-fp16-graph-tp2
+  quantization: fp16
+  served_model_name: qwen2_5-14b
+  tp: 2
+- compilation: eager
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-eager-tp1.sh
+  model: Qwen3-30B-A3B-Instruct-2507-AWQ
+  name: vllm-qwen3-30b-awq-eager-tp1
+  quantization: int4_w4a16
+  served_model_name: qwen3-30b-a3b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-graph-tp1.sh
+  model: Qwen3-30B-A3B-Instruct-2507-AWQ
+  name: vllm-qwen3-30b-awq-graph-tp1
+  quantization: int4_w4a16
+  served_model_name: qwen3-30b-a3b
+  tp: 1
+- compilation: eager
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-eager-tp1-serial.sh
+  model: Qwen3-30B-A3B-Instruct-2507-AWQ
+  name: vllm-qwen3-30b-awq-eager-tp1-serial
+  notes: max-num-seqs=1 workaround for fused-MoE batched bug
+  quantization: int4_w4a16
+  served_model_name: qwen3-30b-a3b
+  tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-30b-awq-graph-tp2.sh
+  model: Qwen3-30B-A3B-Instruct-2507-AWQ
+  name: vllm-qwen3-30b-awq-graph-tp2
+  quantization: int4_w4a16
+  served_model_name: qwen3-30b-a3b
+  tp: 2
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-bf16-graph-tp1.sh
+  model: Qwen3-4B
+  name: vllm-qwen3-4b-bf16-graph-tp1
+  quantization: bf16
+  served_model_name: qwen3-4b
+  tp: 1
 workloads:
-  - name: concurrent-sweep
-    description: "Standard concurrent stress: 16 unique prompts, deterministic sampling"
-    n_clients: [1, 2, 4, 8]
-    max_tokens: 80
-    temperature: 0.0
-    top_p: 1.0
-    unique_prompts: true
+- description: 'Standard concurrent stress: 16 unique prompts, deterministic sampling'
+  max_tokens: 80
+  n_clients:
+  - 1
+  - 2
+  - 4
+  - 8
+  name: concurrent-sweep
+  temperature: 0.0
+  top_p: 1.0
+  unique_prompts: true
