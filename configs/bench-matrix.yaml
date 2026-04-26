@@ -56,6 +56,37 @@ servers:
     served_model_name: qwen3-4b
     launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-vllm011.sh
 
+  # ---- 0.19 ablation probes — toggle one suspected component at a time ----
+  - name: vllm-qwen3-4b-fp16-graph-tp1-019-no-custom-paged
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    notes: "Probe A: VLLM_ROCM_CUSTOM_PAGED_ATTN=0 — disable C++ rocm paged_attention, force triton paged"
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-custom-paged.sh
+
+  - name: vllm-qwen3-4b-fp16-graph-tp1-019-triton-attn
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    notes: "Probe B: VLLM_ATTENTION_BACKEND=TRITON_ATTN — pure-triton attention path"
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-triton-attn.sh
+
+  - name: vllm-qwen3-4b-fp16-graph-tp1-019-no-prefill-decode-split
+    engine: vllm
+    model: Qwen3-4B
+    quantization: fp16
+    compilation: graph
+    tp: 1
+    notes: "Probe C: VLLM_V1_USE_PREFILL_DECODE_ATTENTION=0 + VLLM_ROCM_CUSTOM_PAGED_ATTN=0"
+    served_model_name: qwen3-4b
+    launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3-4b-fp16-graph-tp1-019-no-prefill-decode-split.sh
+
   - name: vllm-qwen3-4b-fp16-graph-tp2
     engine: vllm
     model: Qwen3-4B

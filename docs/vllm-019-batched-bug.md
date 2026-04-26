@@ -105,20 +105,49 @@ differences:
 - vLLM's V1 engine internals (rewritten scheduler, paged-attention API,
   rocm_attn backend) were entirely reworked between these versions.
 
-The bug is somewhere in that diff. Best guesses, ranked by likelihood:
+The bug is somewhere in that diff. Updated guesses after the
+attention-backend ablation pass below.
 
-1. **Real triton 3.4 kernel for batched matmul/attn on RDNA3 wave32**
-   produces wrong output for some batch tile shapes. The
-   `TritonPlaceholder` in 0.11 fell back to torch and dodged the bug
-   entirely.
-2. **V1 engine scheduler** packs prefill+decode requests into a batched
-   forward in a way that exposes a kernel indexing bug. The "exactly 1 row
-   correct" pattern points at a per-batch-row write that's miscomputed.
-3. **rocm_attn / paged-attention backend** writes the wrong row of the
-   output cache when batch size > 1.
-4. **`compressed_tensors` weight layout transformation** — could explain
-   the AWQ case but does NOT explain dense fp16 failing too, so this is
-   unlikely to be primary.
+## Attention-backend ablation (2026-04-26)
+
+Three probes, each toggling one suspected component on the dense
+Qwen3-4B fp16 graph TP1 setup. All four numbers below are
+`garbage_clients / N`.
+
+| Probe | env | N=1 | N=2 | N=4 | N=8 |
+|---|---|---|---|---|---|
+| (default) | `VLLM_ROCM_CUSTOM_PAGED_ATTN=1`, ROCM_ATTN, prefill/decode split on | 0/1 | 0/2 | 1/4 | 5/8 |
+| **A** | `VLLM_ROCM_CUSTOM_PAGED_ATTN=0` (force triton paged) | 0/1 | **1/2** | **3/4** | **7/8** |
+| **B** | `VLLM_ATTENTION_BACKEND=TRITON_ATTN` | 0/1 | 1/2 | 2/4 | 6/8 |
+| **C** | `VLLM_V1_USE_PREFILL_DECODE_ATTENTION=0` + `VLLM_ROCM_CUSTOM_PAGED_ATTN=0` | 0/1 | 0/2 | 2/4 | 6/8 |
+| **0.11** (control) | n/a | 0/1 | 0/2 | 0/4 | 0/8 |
+
+Conclusions from the ablation:
+
+- The bug is **NOT in the attention backend choice**. Every variant
+  reproduces it.
+- C++ `paged_attention_rocm` is actually *closer to correct* than the
+  triton paged path (probe A is the worst at 7/8 garbage).
+- `prefill/decode split` doesn't matter (probe C with split off behaves
+  like the default — both fail at N≥4).
+- This narrows the bug *out* of attention and *into* one of:
+  - **Sampler** (logits → token id) — V1 sampler was rewritten in 0.19
+  - **gpu_model_runner input packing** (how prefill+decode rows are
+    concatenated into the batched forward)
+  - **Embedding / RoPE position encoding** for batch > 1
+  - **Async scheduling** (0.19 logs `Asynchronous scheduling is enabled`,
+    a feature absent in 0.11)
+  - **`model.forward` in graph capture mode** at batch sizes ≥ 4
+
+The "**exactly one row of N gives valid output, the rest stream
+`!`** (token id 0) consistently across all backends" pattern strongly
+suggests the model produces correct logits for **only one row of the
+batched forward output**; the other N−1 rows are zeros / NaN /
+uninitialized, and argmax(0...) → token 0 → `!`.
+
+That's most consistent with an off-by-one in the per-row scratch buffer
+or hidden-state addressing somewhere in the shared model-runner
+plumbing — not in any one attention kernel.
 
 ## Reproduction
 

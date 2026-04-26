@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-4b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T00:07:32",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 79,
+      "ttft_s": 0.9679512977600098,
+      "elapsed_s": 3.1091275215148926,
+      "tps": 25.40905750996923,
+      "garbage": false,
+      "output_head": "<think> Okay, I need to write a Python function that reverses a string. Let me t"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 0.937694787979126,
+      "elapsed_s": 3.109325647354126,
+      "tps": 25.72905159293168,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 79,
+      "ttft_s": 0.9681820869445801,
+      "elapsed_s": 3.109333038330078,
+      "tps": 25.407378053792634,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 79,
+      "ttft_s": 0.9680449962615967,
+      "elapsed_s": 3.1093215942382812,
+      "tps": 25.407471567556957,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
+  ],
+  "summary": {
+    "wall_s": 3.11,
+    "total_tokens": 317,
+    "agg_tps": 101.92,
+    "avg_per_client_tps": 25.49,
+    "ok_clients": 4,
+    "garbage_clients": 3
+  },
+  "config_name": "vllm-qwen3-4b-fp16-graph-tp1-019-no-custom-paged",
+  "workload": "concurrent-sweep"
+}

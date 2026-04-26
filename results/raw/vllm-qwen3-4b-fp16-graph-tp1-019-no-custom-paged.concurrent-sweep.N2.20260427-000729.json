@@ -1,0 +1,47 @@
+{
+  "params": {
+    "n_clients": 2,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-4b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T00:07:29",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 0.8939180374145508,
+      "elapsed_s": 2.76438045501709,
+      "tps": 28.939576625499413,
+      "garbage": false,
+      "output_head": "<think> Okay, I need to write a Python function that reverses a string. Let me t"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 0.9160435199737549,
+      "elapsed_s": 2.777438163757324,
+      "tps": 28.803521548712297,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
+  ],
+  "summary": {
+    "wall_s": 2.78,
+    "total_tokens": 160,
+    "agg_tps": 57.6,
+    "avg_per_client_tps": 28.87,
+    "ok_clients": 2,
+    "garbage_clients": 1
+  },
+  "config_name": "vllm-qwen3-4b-fp16-graph-tp1-019-no-custom-paged",
+  "workload": "concurrent-sweep"
+}
