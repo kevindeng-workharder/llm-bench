@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-30b-a3b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T17:12:58",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 63,
+      "ttft_s": 1.8846795558929443,
+      "elapsed_s": 3.9966225624084473,
+      "tps": 15.763309898854923,
+      "garbage": false,
+      "output_head": "Here's a simple Python function that reverses a string:  ```python def reverse_s"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 1.850433588027954,
+      "elapsed_s": 4.50690770149231,
+      "tps": 17.750529919552317,
+      "garbage": false,
+      "output_head": "The Rust borrow checker is a compile-time system that enforces strict rules abou"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 1.8839426040649414,
+      "elapsed_s": 4.528520822525024,
+      "tps": 17.665812554527108,
+      "garbage": false,
+      "output_head": "In a quiet corner of a sunlit studio, a small, silver robot named Axiom sat befo"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 1.8838040828704834,
+      "elapsed_s": 4.528765678405762,
+      "tps": 17.664857420523905,
+      "garbage": false,
+      "output_head": "Sure! Here are 5 surprising facts about octopuses that highlight their intellige"
+    }
+  ],
+  "summary": {
+    "wall_s": 4.53,
+    "total_tokens": 303,
+    "agg_tps": 66.89,
+    "avg_per_client_tps": 17.21,
+    "ok_clients": 4,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3-30b-awq-graph-tp1",
+  "workload": "concurrent-sweep"
+}

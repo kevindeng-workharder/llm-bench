@@ -263,6 +263,22 @@ also passes 0/N at every N with v2 clamp applied:
 as a contributing factor — v2 clamp is genuinely the root-cause fix,
 not a graph-replay timing accident.
 
+**Cross-model confirmation** with v2 clamp applied (graph mode TP=1):
+
+| Model | N=1 | N=2 | N=4 | N=8 | agg @ N=8 |
+|---|---|---|---|---|---|
+| Qwen3-0.6B fp16 (dense) | 0/1 | 0/2 | 0/4 | 0/8 | 188 t/s |
+| Qwen3-4B fp16 (dense) | 0/1 | 0/2 | 0/4 | 0/8 | 211 t/s |
+| Qwen3-30B-A3B-AWQ (MoE quant) | 0/1 | 0/2 | 0/4 | 0/8 | 101 t/s |
+
+The Qwen3-30B-A3B AWQ run is particularly significant — its launcher
+even called out the bug as "KNOWN ISSUE: fused-MoE batched kernel
+produces garbage logits at N>=2", which was a misdiagnosis pointing
+at the wrong kernel. v2 clamp on the triton prefix-prefill kernel
+(not the MoE kernel) fixes it cleanly. The MoE-architecture coincidence
+(Qwen3-30B is MoE) made earlier hypothesis attribute it to the fused
+MoE batched kernel; in reality the bug was always in attention.
+
 ### How we found it
 
 1. After v1 clamp, ran the v4 NaN/inf probe on every Qwen3 decoder
