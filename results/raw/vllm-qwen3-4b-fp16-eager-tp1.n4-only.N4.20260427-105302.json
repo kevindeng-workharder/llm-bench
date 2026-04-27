@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 30,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-4b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T10:53:02",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 30,
+      "ttft_s": 1.6988415718078613,
+      "elapsed_s": 12.570704460144043,
+      "tps": 2.386501098257165,
+      "garbage": false,
+      "output_head": "<think> Okay, I need to write a Python function that reverses a string. Let me t"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 30,
+      "ttft_s": 2.349801778793335,
+      "elapsed_s": 12.58793020248413,
+      "tps": 2.383235330783748,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 30,
+      "ttft_s": 2.349583625793457,
+      "elapsed_s": 12.58792757987976,
+      "tps": 2.383235827313725,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 30,
+      "ttft_s": 2.3487181663513184,
+      "elapsed_s": 12.587068319320679,
+      "tps": 2.3833985197292624,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
+  ],
+  "summary": {
+    "wall_s": 12.59,
+    "total_tokens": 120,
+    "agg_tps": 9.53,
+    "avg_per_client_tps": 2.38,
+    "ok_clients": 4,
+    "garbage_clients": 3
+  },
+  "config_name": "vllm-qwen3-4b-fp16-eager-tp1",
+  "workload": "n4-only"
+}

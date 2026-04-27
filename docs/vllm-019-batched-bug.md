@@ -1,7 +1,11 @@
 # vLLM 0.19 batched-correctness regression on riscv64 + ROCm gfx1100
 
-**Status:** **ROOT CAUSE FOUND 2026-04-27 — fp16 NaN overflow inside the
-model forward.** Workaround: use `--dtype bfloat16`.
+**Status:** **EXACT KERNEL PINPOINTED 2026-04-27** — vLLM's
+`Attention()` backend (the inner `softmax(QK^T/√d) @ V` step) overflows
+fp16 on this stack for batch ≥ 2, producing `NaN` for all rows except
+one. Workaround: use `--dtype bfloat16`. The fix should be in the
+attention kernel's softmax (subtract-max trick missing on the fp16 path
+on RDNA3 gfx1100).
 
 ## TL;DR
 
@@ -55,8 +59,66 @@ buffering):
 5. Switching `--dtype float16` → `--dtype bfloat16` makes garbage = 0/4
    without any other code change. → fp16 overflow inside model forward.
 
-The instrumentation patches live in `scripts/instrument-019-v*.py` so
-the chain is reproducible.
+The instrumentation patches live in `scripts/instruments/instrument-019-v*.py`
+so the chain is reproducible.
+
+### Layer-by-layer drill-down (2026-04-27)
+
+Patched `Qwen3DecoderLayer.forward` to print per-row `max` after each
+sub-op (`scripts/instruments/instrument-qwen3-layers-v2.py`). With
+`--enforce-eager` so no cudagraph capture intercepts the prints:
+
+```
+[QL model.layers.0-D_mlp] max=[2.36, 1.36, 1.38, 1.47]                 ← layer 0 OK
+[QL model.layers.1-A_ln1] max=[0.27, 0.14, 0.14, 0.14]                 ← layer 1 input_layernorm OK
+[QL model.layers.1-B_attn] max=[0.43, NaN, NaN, NaN] HAS_NAN          ← layer 1 self_attn introduces NaN
+```
+
+Drilled into `Qwen3Attention.forward`
+(`scripts/instruments/instrument-qwen3-attn.py`):
+
+```
+[QA layers.1.self_attn-P_qkv]    max=[0.71, 0.86, 0.81, 0.86]    ← qkv_proj OK
+[QA layers.1.self_attn-P_q]      max=[0.71, 0.86, 0.81, 0.86]
+[QA layers.1.self_attn-P_k]      max=[0.37, 0.43, 0.42, 0.43]
+[QA layers.1.self_attn-P_v]      max=[0.13, 0.20, 0.21, 0.20]
+[QA layers.1.self_attn-P_qn]     max=[8.06, 8.91, 9.42, 9.15]    ← q_norm output (RMSNorm), still finite
+[QA layers.1.self_attn-P_kn]     max=[37.13, 38.84, 39.09, 38.16] ← k_norm output, larger but finite
+[QA layers.1.self_attn-P_q_rope] max=[8.06, 8.91, 9.42, 9.15]
+[QA layers.1.self_attn-P_k_rope] max=[37.13, 38.84, 39.09, 38.16]
+[QA layers.1.self_attn-P_attn]   max=[0.15, NaN, NaN, NaN] HAS_NAN  ← self.attn() = THE BUG
+[QA layers.1.self_attn-P_o]      max=[0.43, NaN, NaN, NaN]
+```
+
+`self.attn(q, k, v)` is vLLM's `Attention()` layer that dispatches into
+the active backend (here `ROCM_ATTN`, but also reproduces with
+`TRITON_ATTN`). All inputs (Q, K, V) are finite, but the output has NaN
+for rows 1, 2, 3 of the batched forward.
+
+The math:
+
+- max(Q) ≈ 9, max(K) ≈ 39, head_dim=128
+- `(Q @ K^T)` per element ≈ 9 × 39 = 351
+- summed over 128 → can hit several thousand even with sparsity
+- scaled by `1/√128 = 0.088` → softmax input scores still in the
+  hundreds
+- `exp(score)` for `score > 11` overflows fp16 (max ≈ 65 504)
+- inf in numerator / inf in denominator → **NaN**
+
+Standard mitigations (subtract `max(scores)` before `exp`, accumulate in
+fp32, masked-fill in fp32 then cast) all keep this stable on every
+mainstream attention impl. The vLLM 0.19 attention kernels on RDNA3
+gfx1100 must be missing one of those steps on the fp16 path.
+
+Why only **rows 1-3** are NaN and not row 0: most likely the kernel
+computes `max(scores)` correctly only for the first row of the batch
+(thread-block layout assumption mismatched against RDNA3 wave32 vs the
+CDNA / NVIDIA wave64 the kernel was tuned for), so rows 1-3 skip the
+subtract-max trick and overflow. Row 0's softmax is normalized correctly
+because its per-row max IS the input.
+
+bf16 hides this entirely because its 8-bit exponent matches fp32 — even
+unscaled `exp(several hundred)` fits, so the bug is masked.
 
 **Earlier write-ups in this file claimed the bug was MoE-specific, then
 sampler-specific, then attention-specific — all wrong. The real cause
