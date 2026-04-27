@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-30b-a3b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T19:55:50",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 26,
+      "ttft_s": 6.428727388381958,
+      "elapsed_s": 14.883254289627075,
+      "tps": 1.746929770468329,
+      "garbage": false,
+      "output_head": "<think>  </think>  ```python def reverse_string(s: str) -> str:     return s[::-"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 5.757081747055054,
+      "elapsed_s": 30.13221764564514,
+      "tps": 2.6549655568269133,
+      "garbage": false,
+      "output_head": "<think>  </think>  The Rust borrow checker enforces strict rules at compile time"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 6.418268442153931,
+      "elapsed_s": 30.33463978767395,
+      "tps": 2.637249051248232,
+      "garbage": false,
+      "output_head": "<think>  </think>  Unit 734 stood before the blank canvas, its optical sensors c"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 6.423410654067993,
+      "elapsed_s": 30.34003472328186,
+      "tps": 2.63678010686688,
+      "garbage": false,
+      "output_head": "<think>  </think>  Here are five surprising facts about octopuses that highlight"
+    }
+  ],
+  "summary": {
+    "wall_s": 30.34,
+    "total_tokens": 266,
+    "agg_tps": 8.77,
+    "avg_per_client_tps": 2.42,
+    "ok_clients": 4,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3-30b-awq-eager-tp1",
+  "workload": "concurrent-sweep"
+}

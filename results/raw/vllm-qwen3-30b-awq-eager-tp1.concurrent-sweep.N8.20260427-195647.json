@@ -1,0 +1,113 @@
+{
+  "params": {
+    "n_clients": 8,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-30b-a3b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T19:56:47",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 26,
+      "ttft_s": 9.85794448852539,
+      "elapsed_s": 26.15395450592041,
+      "tps": 0.9941135285723022,
+      "garbage": false,
+      "output_head": "<think>  </think>  ```python def reverse_string(s: str) -> str:     return s[::-"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 9.82110333442688,
+      "elapsed_s": 57.14124011993408,
+      "tps": 1.4000396181827264,
+      "garbage": false,
+      "output_head": "<think>  </think>  The Rust borrow checker enforces strict rules at compile time"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 9.8370680809021,
+      "elapsed_s": 57.156404972076416,
+      "tps": 1.3996681568598262,
+      "garbage": false,
+      "output_head": "<think>  </think>  Unit 734 stood before the blank canvas, its optical sensors c"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 7.849889516830444,
+      "elapsed_s": 56.67176675796509,
+      "tps": 1.4116376562189352,
+      "garbage": false,
+      "output_head": "<think>  </think>  Here are five surprising facts about octopuses that highlight"
+    },
+    {
+      "id": 4,
+      "ok": true,
+      "prompt_short": "What's the difference between TCP and UDP? Brief.",
+      "n_chunks": 80,
+      "ttft_s": 9.83168888092041,
+      "elapsed_s": 57.152397871017456,
+      "tps": 1.3997662911807378,
+      "garbage": false,
+      "output_head": "<think>  </think>  The main differences between **TCP** (Transmission Control Pr"
+    },
+    {
+      "id": 5,
+      "ok": true,
+      "prompt_short": "Compose a 4-line poem about morning coffee.",
+      "n_chunks": 38,
+      "ttft_s": 9.847134590148926,
+      "elapsed_s": 33.52655839920044,
+      "tps": 1.133429788633069,
+      "garbage": false,
+      "output_head": "<think>  </think>  Steam rises in the quiet dawn, A dark and bitter, warm embrac"
+    },
+    {
+      "id": 6,
+      "ok": true,
+      "prompt_short": "List 3 differences between SQL and NoSQL databases",
+      "n_chunks": 80,
+      "ttft_s": 9.841788530349731,
+      "elapsed_s": 57.1606605052948,
+      "tps": 1.3995639534744282,
+      "garbage": false,
+      "output_head": "<think>  </think>  Here are three key differences between SQL (Relational) and N"
+    },
+    {
+      "id": 7,
+      "ok": true,
+      "prompt_short": "How does a neural network learn? Explain like I'm ",
+      "n_chunks": 80,
+      "ttft_s": 9.825377941131592,
+      "elapsed_s": 57.14491605758667,
+      "tps": 1.399949558406588,
+      "garbage": false,
+      "output_head": "<think>  </think>  Imagine you are trying to teach a robot how to recognize pict"
+    }
+  ],
+  "summary": {
+    "wall_s": 57.16,
+    "total_tokens": 544,
+    "agg_tps": 9.52,
+    "avg_per_client_tps": 1.32,
+    "ok_clients": 8,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3-30b-awq-eager-tp1",
+  "workload": "concurrent-sweep"
+}
