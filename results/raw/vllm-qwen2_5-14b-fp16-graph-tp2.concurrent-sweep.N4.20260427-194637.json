@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen2_5-14b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T19:46:37",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 0.8174214363098145,
+      "elapsed_s": 9.962597608566284,
+      "tps": 8.03003424841855,
+      "garbage": false,
+      "output_head": "Certainly! Below is a simple Python function to reverse a given string:  ```pyth"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 1.6185693740844727,
+      "elapsed_s": 10.160740613937378,
+      "tps": 7.873441812919116,
+      "garbage": false,
+      "output_head": "The Rust borrow checker is a compiler component that enforces memory safety and "
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 1.6184797286987305,
+      "elapsed_s": 10.160472631454468,
+      "tps": 7.873649474960303,
+      "garbage": false,
+      "output_head": "In the heart of a bustling city, a small, curious robot named Zeta found itself "
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 1.6183505058288574,
+      "elapsed_s": 10.15999984741211,
+      "tps": 7.874015866287349,
+      "garbage": false,
+      "output_head": "Certainly! Octopuses are fascinating creatures with many unique and surprising t"
+    }
+  ],
+  "summary": {
+    "wall_s": 10.16,
+    "total_tokens": 320,
+    "agg_tps": 31.49,
+    "avg_per_client_tps": 7.91,
+    "ok_clients": 4,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen2_5-14b-fp16-graph-tp2",
+  "workload": "concurrent-sweep"
+}

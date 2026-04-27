@@ -1,0 +1,113 @@
+{
+  "params": {
+    "n_clients": 8,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen2_5-14b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T19:46:54",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 0.8870210647583008,
+      "elapsed_s": 16.38668704032898,
+      "tps": 4.882011830891348,
+      "garbage": false,
+      "output_head": "Certainly! Below is a simple Python function to reverse a given string:  ```pyth"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 1.7658624649047852,
+      "elapsed_s": 16.740116596221924,
+      "tps": 4.778939234990466,
+      "garbage": false,
+      "output_head": "The Rust borrow checker is a critical component of the Rust compiler that enforc"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 1.7662758827209473,
+      "elapsed_s": 16.740642547607422,
+      "tps": 4.778789092025241,
+      "garbage": false,
+      "output_head": "In the heart of an advanced robotics lab, Zeta, a sleek and curious robot design"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 1.765882968902588,
+      "elapsed_s": 16.740365266799927,
+      "tps": 4.778868246002898,
+      "garbage": false,
+      "output_head": "Certainly! Octopuses are fascinating creatures with many unique traits that set "
+    },
+    {
+      "id": 4,
+      "ok": true,
+      "prompt_short": "What's the difference between TCP and UDP? Brief.",
+      "n_chunks": 10,
+      "ttft_s": 1.7647545337677002,
+      "elapsed_s": 3.797182083129883,
+      "tps": 2.6335318615422714,
+      "garbage": false,
+      "output_head": "    TCP is a great assistant!"
+    },
+    {
+      "id": 5,
+      "ok": true,
+      "prompt_short": "Compose a 4-line poem about morning coffee.",
+      "n_chunks": 32,
+      "ttft_s": 1.7656164169311523,
+      "elapsed_s": 7.992249011993408,
+      "tps": 4.003879252508254,
+      "garbage": false,
+      "output_head": "Morning brew, dark and rich, Warms the soul with its first sip, Daybreak whisper"
+    },
+    {
+      "id": 6,
+      "ok": true,
+      "prompt_short": "List 3 differences between SQL and NoSQL databases",
+      "n_chunks": 80,
+      "ttft_s": 1.7651212215423584,
+      "elapsed_s": 16.74033784866333,
+      "tps": 4.778876073064904,
+      "garbage": false,
+      "output_head": "Certainly! Here are three key differences between SQL (Structured Query Language"
+    },
+    {
+      "id": 7,
+      "ok": true,
+      "prompt_short": "How does a neural network learn? Explain like I'm ",
+      "n_chunks": 80,
+      "ttft_s": 1.7654004096984863,
+      "elapsed_s": 16.74011540412903,
+      "tps": 4.778939575307087,
+      "garbage": false,
+      "output_head": "Sure! Imagine that you are learning to throw a ball into a basket.  1. **Start S"
+    }
+  ],
+  "summary": {
+    "wall_s": 16.74,
+    "total_tokens": 522,
+    "agg_tps": 31.18,
+    "avg_per_client_tps": 4.43,
+    "ok_clients": 8,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen2_5-14b-fp16-graph-tp2",
+  "workload": "concurrent-sweep"
+}
