@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen36-a3b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T19:50:10",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 26,
+      "ttft_s": 10.639945983886719,
+      "elapsed_s": 20.712291717529297,
+      "tps": 1.255293250722014,
+      "garbage": false,
+      "output_head": "<think>  </think>  ```python def reverse_string(s: str) -> str:     return s[::-"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 13.433066129684448,
+      "elapsed_s": 37.81515669822693,
+      "tps": 2.1155538409748553,
+      "garbage": false,
+      "output_head": "<think>  </think>  The Rust borrow checker enforces strict rules at compile time"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 13.425855875015259,
+      "elapsed_s": 37.788514614105225,
+      "tps": 2.117045372567743,
+      "garbage": false,
+      "output_head": "<think>  </think>  Unit 734 stood before the blank canvas, its optical sensors c"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 13.440670251846313,
+      "elapsed_s": 37.8406445980072,
+      "tps": 2.1141288910340874,
+      "garbage": false,
+      "output_head": "<think>  </think>  Here are five surprising facts about octopuses that highlight"
+    }
+  ],
+  "summary": {
+    "wall_s": 37.84,
+    "total_tokens": 266,
+    "agg_tps": 7.03,
+    "avg_per_client_tps": 1.9,
+    "ok_clients": 4,
+    "garbage_clients": 0
+  },
+  "config_name": "llamacpp-qwen36-35b-mxfp4-tp1",
+  "workload": "concurrent-sweep"
+}

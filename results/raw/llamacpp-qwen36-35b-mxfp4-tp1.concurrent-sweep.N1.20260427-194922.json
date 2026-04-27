@@ -1,0 +1,36 @@
+{
+  "params": {
+    "n_clients": 1,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen36-a3b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T19:49:22",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 26,
+      "ttft_s": 1.6231729984283447,
+      "elapsed_s": 3.7404162883758545,
+      "tps": 6.951097951530308,
+      "garbage": false,
+      "output_head": "<think>  </think>  ```python def reverse_string(s: str) -> str:     return s[::-"
+    }
+  ],
+  "summary": {
+    "wall_s": 3.74,
+    "total_tokens": 26,
+    "agg_tps": 6.95,
+    "avg_per_client_tps": 6.95,
+    "ok_clients": 1,
+    "garbage_clients": 0
+  },
+  "config_name": "llamacpp-qwen36-35b-mxfp4-tp1",
+  "workload": "concurrent-sweep"
+}
