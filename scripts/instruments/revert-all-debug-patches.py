@@ -112,13 +112,13 @@ def strip_clamp_block(src: str) -> str:
 
 
 def strip_inline_clamp(src: str) -> str:
-    """Undo the inline clamp wrappers we added in triton_decode_attention.py:
+    """Undo the clamp wrappers in triton_decode_attention.py.
 
-        tl.minimum(tl.maximum(acc / e_sum, -65504.0), 65504.0),  # llm-bench fp16 fix
-        ->  acc / e_sum,
-        tl.minimum(tl.maximum(acc / e_sum[:, None], -65504.0), 65504.0),  # llm-bench fp16 fix
-        ->  acc / e_sum[:, None],
+    Two variants exist (v1 inline single-line, v2 multi-line block).
+    Restores to the upstream-vanilla `acc / e_sum` (or `e_sum[:, None]`)
+    inside the original tl.store call.
     """
+    # --- v1 inline (single-line) ---
     src = src.replace(
         "tl.minimum(tl.maximum(acc / e_sum, -65504.0), 65504.0),  # llm-bench fp16 fix",
         "acc / e_sum,",
@@ -126,6 +126,68 @@ def strip_inline_clamp(src: str) -> str:
     src = src.replace(
         "tl.minimum(tl.maximum(acc / e_sum[:, None], -65504.0), 65504.0),  # llm-bench fp16 fix",
         "acc / e_sum[:, None],",
+    )
+
+    # --- v2 multi-line: 3 explicit site-by-site replacements ---
+    # Site 1: _fwd_kernel_stage1, 1D e_sum
+    src = src.replace(
+        """        # ---- llm-bench fp16 fix v2: zero degenerate rows + NaN-safe clamp ----
+        _v2_out = acc / e_sum
+        _v2_out = tl.where(e_sum < 1e-3, 0.0, _v2_out)
+        _v2_out = tl.where(_v2_out != _v2_out, 0.0, _v2_out)
+        _v2_out = tl.where(_v2_out > 65504.0, 65504.0, _v2_out)
+        _v2_out = tl.where(_v2_out < -65504.0, -65504.0, _v2_out)
+        tl.store(
+            Att_Out + offs_mid_o,
+            _v2_out,
+            mask=(mask_dv),
+        )
+        # ---- end ----""",
+        """        tl.store(
+            Att_Out + offs_mid_o,
+            acc / e_sum,
+            mask=(mask_dv),
+        )""",
+    )
+    # Site 2: _fwd_grouped_kernel_stage1, 2D e_sum[:, None]
+    src = src.replace(
+        """        # ---- llm-bench fp16 fix v2: zero degenerate rows + NaN-safe clamp ----
+        _v2_out = acc / e_sum[:, None]
+        _v2_out = tl.where(e_sum[:, None] < 1e-3, 0.0, _v2_out)
+        _v2_out = tl.where(_v2_out != _v2_out, 0.0, _v2_out)
+        _v2_out = tl.where(_v2_out > 65504.0, 65504.0, _v2_out)
+        _v2_out = tl.where(_v2_out < -65504.0, -65504.0, _v2_out)
+        tl.store(
+            Att_Out + offs_mid_o,
+            _v2_out,
+            mask=(mask_h[:, None]) & (mask_dv[None, :]),
+        )
+        # ---- end ----""",
+        """        tl.store(
+            Att_Out + offs_mid_o,
+            acc / e_sum[:, None],
+            mask=(mask_h[:, None]) & (mask_dv[None, :]),
+        )""",
+    )
+    # Site 3: _fwd_kernel_stage2, 1D e_sum, stores final O
+    src = src.replace(
+        """    # ---- llm-bench fp16 fix v2: zero degenerate rows + NaN-safe clamp ----
+    _v2_out = acc / e_sum
+    _v2_out = tl.where(e_sum < 1e-3, 0.0, _v2_out)
+    _v2_out = tl.where(_v2_out != _v2_out, 0.0, _v2_out)
+    _v2_out = tl.where(_v2_out > 65504.0, 65504.0, _v2_out)
+    _v2_out = tl.where(_v2_out < -65504.0, -65504.0, _v2_out)
+    tl.store(
+        o + cur_batch * stride_obs + cur_head * stride_oh + offs_d,
+        _v2_out,
+        mask=mask_d,
+    )
+    # ---- end ----""",
+        """    tl.store(
+        o + cur_batch * stride_obs + cur_head * stride_oh + offs_d,
+        acc / e_sum,
+        mask=mask_d,
+    )""",
     )
     return src
 

@@ -367,6 +367,23 @@ hunt for the N=8 overflow is documented as a follow-up.
    `acc / (l_i + eps)` epilogue in vLLM's triton attention kernels
    when the output dtype is fp16. No C++ kernel change needed.
 
+### MLA decode kernels (DeepSeek V2/V3-style models)
+
+The MLA decode kernels in
+`vllm/v1/attention/ops/triton_decode_attention.py` have the same
+`acc / e_sum` epilogue pattern at 3 sites
+(`_fwd_kernel_stage1`, `_fwd_grouped_kernel_stage1`,
+`_fwd_kernel_stage2`). They were initially patched with v1-style
+inline `tl.minimum/tl.maximum` clamps and later upgraded to the v2
+multi-line form (zero-degenerate-rows + NaN-safe `tl.where`) so that
+DeepSeek V2/V3 / Qwen3-Next-MLA workloads on the same VM get the
+same complete fix as the GQA path.
+
+Patch script: `scripts/instruments/patch-mla-v2-clamp.py`.
+Not yet end-to-end verified on an MLA model (we don't have one
+loaded), but the upgrade keeps the kernel symmetric with the GQA
+prefix-prefill fix and is purely additive defence.
+
 ### Reverting all debug patches
 
 `scripts/instruments/revert-all-debug-patches.py` rolls back every
