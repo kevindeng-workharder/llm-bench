@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 30,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-4b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T11:15:19",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 30,
+      "ttft_s": 1.6783111095428467,
+      "elapsed_s": 10.108000040054321,
+      "tps": 2.967946169481691,
+      "garbage": false,
+      "output_head": "<think> Okay, I need to write a Python function that reverses a string. Let me t"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 30,
+      "ttft_s": 1.6774640083312988,
+      "elapsed_s": 10.107172966003418,
+      "tps": 2.968189037716905,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 30,
+      "ttft_s": 1.0241878032684326,
+      "elapsed_s": 10.08811092376709,
+      "tps": 2.973797594683608,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants a one-paragraph story about a robot learning to pai"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 30,
+      "ttft_s": 1.67781662940979,
+      "elapsed_s": 10.107482194900513,
+      "tps": 2.968098228769157,
+      "garbage": true,
+      "output_head": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
+  ],
+  "summary": {
+    "wall_s": 10.11,
+    "total_tokens": 120,
+    "agg_tps": 11.87,
+    "avg_per_client_tps": 2.97,
+    "ok_clients": 4,
+    "garbage_clients": 2
+  },
+  "config_name": "vllm-qwen3-4b-fp16-eager-tp1",
+  "workload": "n4-only"
+}
