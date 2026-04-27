@@ -1,5 +1,11 @@
 # vLLM 0.19 fp16 batched-NaN bug — debug summary
 
+**Status: SOLVED (2026-04-27).** Fix lives in
+`scripts/instruments/patch-clamp-v2-zero-degenerate.py`. After applying,
+Qwen3-4B fp16 graph TP1 produces 0 garbage streams at N=1/2/4/8. See
+[Real fix verified (FULL)](#real-fix-verified-full--zero-degenerate-softmax-rows--nan-safe-clamp)
+below for the actual mechanism.
+
 Concise narrative of how we narrowed the bug, what's confirmed, what's
 ruled out, and where the investigation stands.
 
@@ -203,7 +209,67 @@ upstream of attention.py — it's specifically the prefix-prefill triton
 kernel, only on the fp16 path, only at the first-layer prefill stage,
 and only when prefill and decode are batched together.**
 
-## Real fix verified (partial) — fp16-clamp every triton epilogue
+## Real fix verified (FULL) — zero degenerate softmax rows + NaN-safe clamp
+
+**TL;DR**: `acc / (l_i + 1e-10)` blows up to fp16 max **65 504** when
+`l_i` is degenerately small (≈ 0 for masked-out / numerically dead
+softmax rows). The v1 clamp prevented inf in the kernel output, but
+those clamped 65 504 values then went into `o_proj` (a 4096-wide
+matmul over fp16 weights) which **summed to a value > 65 504** in fp32
+and got cast to fp16 inf. From there it cascaded.
+
+The real fix zeroes out rows whose softmax denominator is degenerately
+small — semantically those rows had no valid attention weight anyway —
+and clamps with NaN-safe `tl.where`:
+
+```python
+acc = acc / (l_i[:, None] + 1e-10)
+# v2 fix:
+acc = tl.where(l_i[:, None] < 1e-3, 0.0, acc)   # zero degenerate rows
+acc = tl.where(acc != acc, 0.0, acc)             # NaN -> 0  (NaN-safe)
+acc = tl.where(acc > 65504.0, 65504.0, acc)
+acc = tl.where(acc < -65504.0, -65504.0, acc)
+tl.store(out_ptrs, acc, ...)
+```
+
+Patch script: `scripts/instruments/patch-clamp-v2-zero-degenerate.py`.
+Applies on top of (or replacing) the v1 clamp at the same 4 sites.
+
+End-to-end on Qwen3-4B fp16 graph TP1 (two consecutive runs):
+
+| Config | N=1 | N=2 | N=4 | N=8 |
+|---|---|---|---|---|
+| **Before any patch** | 0/1 | 0/2 | 2/4 | 6/8 |
+| **v1 clamp** (`tl.minimum/maximum`) | 0/1 | 0/2 | 0/4 ✅ | 4/8 |
+| **v1 + force-triton** (use_custom=False) | 0/1 | 0/2 | 0/4 ✅ | 2/8 |
+| **v2 clamp** (zero-degenerate-rows + tl.where) | **0/1** | **0/2** | **0/4** | **0/8 ✅** |
+| **--dtype bfloat16** (no patch) | 0/1 | 0/2 | 0/4 | 0/8 |
+
+So **v2 clamp fully fixes N=1/2/4/8 on `--dtype float16`**.
+Throughput ≈ 35 / 49 / 90 / 190 t/s — matching the original.
+
+### How we found it
+
+1. After v1 clamp, ran the v4 NaN/inf probe on every Qwen3 decoder
+   layer with `bs >= 8 AND positions != 0` (filters out vLLM's
+   `dummy_run` which uses synthetic identical inputs).
+2. First inf appeared at **L17 02_after_attn**, rows 27, 28 only.
+3. Within 1-2 layers, NaN spread to rows 23-40 via `q · k_cache`.
+4. Mechanism: `acc / (l_i + 1e-10)` with `l_i` ≪ 1e-10 produces
+   fp32 values like `acc * 1e10`, which the v1 clamp pinned at the
+   fp16 ceiling 65 504. Then `o_proj` did `out = attn @ W_o`,
+   summing 4096 fp16-multiplied values; the fp32 accumulator grew
+   past 65 504 and the output cast to fp16 became inf.
+5. v2 fix zeroes the degenerate rows directly, bypassing the
+   amplification cascade.
+
+Probe scripts (kept for re-running the bisection):
+- `scripts/instruments/probe-find-n8-nan.py` (per-stage NaN/inf
+  detector with capture-skip)
+- `scripts/instruments/probe-stats-n8-v3.py` / `…v4.py`
+  (real-data filter via positions, distinct-row count, NaN-only print)
+
+### Original v1 (insufficient) — kept for context
 
 The triton attention kernels in vLLM 0.19 do their math in fp32 (`acc`,
 `l_i`, `m_i` are all `tl.float32`), apply the standard subtract-max
@@ -245,28 +311,61 @@ Verified end-to-end on Qwen3-4B fp16 graph TP1 with
 | Config | N=1 | N=2 | N=4 | N=8 |
 |---|---|---|---|---|
 | **Before patch** | 0/1 | 0/2 | **2/4 bad** | **6/8 bad** |
-| **After triton clamp** | 0/1 | 0/2 | **0/4 ✅** | **4/8 bad** |
+| **Triton clamp only** (use_custom on) | 0/1 | 0/2 | **0/4 ✅** | **4/8 bad** |
+| **Triton clamp + force-triton** (use_custom=False) | 0/1 | 0/2 | **0/4 ✅** | **2/8 bad** |
+| **`--dtype bfloat16`** (no patch) | 0/1 | 0/2 | **0/4 ✅** | **0/8 ✅** |
 
-So **N=1, 2, 4 are FULLY FIXED** by the triton-side clamp. N=8 still
-has 4/8 garbage — the residual is the **C++ `paged_attention_rocm`
-kernel** doing the same fp16 overflow on the decode side of larger
-mixed batches. That kernel is in `csrc/rocm/attention.cu` and would
-need either a similar clamp before its store, or rebuilding `_rocm_C.so`
-with the fix. We have not done the rebuild (multi-hour csrc compile on
-the riscv64 VM); for now the bf16 workaround covers it.
+So **N=1, 2, 4 are FULLY FIXED** by the triton-side clamp alone.
+
+The 省事 path — combining the triton clamp with `use_custom = False`
+(see `scripts/instruments/probe-force-triton.py`) — routes every
+attention dispatch through the patched triton kernels and never calls
+the un-patched C++ `paged_attention_rocm`. That improves N=8 from 4/8
+bad to 2/8 bad but does NOT fully fix it.
+
+The residual 2/8 at N=8 is therefore NOT the C++ kernel — it's a
+second fp16 overflow path inside the triton kernels themselves,
+upstream of the epilogue clamp we added. Most likely candidates:
+- `qk = sm_scale * tl.dot(q, k)` producing values that, when later
+  cast to fp16 inside `tl.dot(p, v)` via the `p.to(V.dtype)` cast,
+  push some intermediate outside fp16 range, OR
+- a residual / RMSNorm overflow in a layer activation buffer that's
+  shape-dependent on the batch (mixed prefill+decode shapes at N=8
+  expose a different chunk size that nudges activations past 65504).
+
+For now `--dtype bfloat16` is the practical fix; the kernel-side
+hunt for the N=8 overflow is documented as a follow-up.
 
 ## Practical fix paths
 
-1. **Use `--dtype bfloat16`.** Verified: 0/8 garbage at N=8 with no
-   changes to vLLM. Same throughput. **This is the recommended runtime
-   fix.**
-2. **Apply the triton-clamp patch** (above) and stay on `--dtype float16`:
-   covers N=1/2/4 cleanly; N=8 still loses some streams to the
-   un-patched C++ kernel.
-3. **Long-term upstream fix:** in vLLM `vllm/v1/attention/ops/*.py`,
-   guard every `acc / l_i` epilogue with the clamp-to-fp16-range trick
-   when the output dtype is fp16. Equivalent fix in `csrc/rocm/attention.cu`
-   for the C++ paged-attention kernel.
+1. **Apply the v2 clamp** (`scripts/instruments/patch-clamp-v2-zero-degenerate.py`):
+   stays on `--dtype float16`, full N=1/2/4/8 correctness, no
+   throughput penalty. **Recommended.**
+2. **Use `--dtype bfloat16`** if you don't want to patch vLLM.
+   Same end result; bf16's wider exponent absorbs the overflow
+   naturally.
+3. **Long-term upstream fix:** the v2 clamp pattern (zero degenerate
+   softmax rows + NaN-safe `tl.where` clamp) belongs in every
+   `acc / (l_i + eps)` epilogue in vLLM's triton attention kernels
+   when the output dtype is fp16. The same fix should go into
+   `csrc/rocm/attention.cu` if anyone wants to keep `use_custom=True`
+   on the C++ paged-attention kernel.
+
+### Reverting all debug patches
+
+`scripts/instruments/revert-all-debug-patches.py` rolls back every
+patch we applied during this investigation:
+- restores `qwen3.py` from `.before-instrument`
+- restores `prefix_prefill.py` from `.before-clamp`
+- restores `chunked_prefill_paged_decode.py` from
+  `.bak-before-fix-20260424`
+- strips the v1 / v2 clamp blocks in place from
+  `triton_prefill_attention.py` and `triton_decode_attention.py`
+  (those have no useful pre-clamp backup)
+
+Importantly, the script leaves `.pre-riscv-patch` files alone — those
+are upstream-vanilla and reverting to them would re-break the
+riscv64 cross-compile environment.
 
 ## Reproducer
 
