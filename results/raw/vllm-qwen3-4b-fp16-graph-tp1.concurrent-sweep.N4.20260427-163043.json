@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-4b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T16:30:43",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 0.9772598743438721,
+      "elapsed_s": 2.847146987915039,
+      "tps": 28.09830343834263,
+      "garbage": false,
+      "output_head": "<think> Okay, I need to write a Python function that reverses a string. Let me t"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 0.9481279850006104,
+      "elapsed_s": 2.832723617553711,
+      "tps": 28.241371485823443,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants me to explain what the Rust borrow checker does in "
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 0.9776220321655273,
+      "elapsed_s": 2.846161365509033,
+      "tps": 28.108033848492664,
+      "garbage": false,
+      "output_head": "仑 Okay, the user wants a one-paragraph story about a robot learning to paint. Le"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 0.9773938655853271,
+      "elapsed_s": 2.846609592437744,
+      "tps": 28.103607959632637,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants five surprising facts about octopuses. Let me start"
+    }
+  ],
+  "summary": {
+    "wall_s": 2.85,
+    "total_tokens": 320,
+    "agg_tps": 112.25,
+    "avg_per_client_tps": 28.14,
+    "ok_clients": 4,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3-4b-fp16-graph-tp1",
+  "workload": "concurrent-sweep"
+}

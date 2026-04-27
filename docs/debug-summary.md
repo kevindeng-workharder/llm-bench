@@ -235,18 +235,27 @@ tl.store(out_ptrs, acc, ...)
 Patch script: `scripts/instruments/patch-clamp-v2-zero-degenerate.py`.
 Applies on top of (or replacing) the v1 clamp at the same 4 sites.
 
-End-to-end on Qwen3-4B fp16 graph TP1 (two consecutive runs):
+End-to-end on Qwen3-4B fp16 graph TP1 (multiple runs):
 
 | Config | N=1 | N=2 | N=4 | N=8 |
 |---|---|---|---|---|
 | **Before any patch** | 0/1 | 0/2 | 2/4 | 6/8 |
 | **v1 clamp** (`tl.minimum/maximum`) | 0/1 | 0/2 | 0/4 ✅ | 4/8 |
 | **v1 + force-triton** (use_custom=False) | 0/1 | 0/2 | 0/4 ✅ | 2/8 |
-| **v2 clamp** (zero-degenerate-rows + tl.where) | **0/1** | **0/2** | **0/4** | **0/8 ✅** |
+| **v2 clamp** (zero-degenerate-rows + tl.where) + force-triton | **0/1** | **0/2** | **0/4** | **0/8 ✅** |
+| **v2 clamp ALONE** (native use_custom for C++ paged-attn) | **0/1** | **0/2** | **0/4** | **0/8 ✅** |
 | **--dtype bfloat16** (no patch) | 0/1 | 0/2 | 0/4 | 0/8 |
 
-So **v2 clamp fully fixes N=1/2/4/8 on `--dtype float16`**.
-Throughput ≈ 35 / 49 / 90 / 190 t/s — matching the original.
+So **v2 clamp fully fixes N=1/2/4/8 on `--dtype float16`**, and the
+fix is sufficient on its own — `use_custom=False` (force-triton path)
+is NOT required. The C++ `paged_attention_rocm` kernel was always
+innocent; the bug was purely in the triton `prefix_prefill._fwd_kernel`
+epilogue, and the resulting bad rows were leaking into o_proj which
+amplified them to inf.
+
+Throughput with v2 clamp + native C++ paged-attn:
+~36 / 58 / 112 / 211 t/s for N=1/2/4/8 — same range as the
+original/uncorrupted vLLM 0.19 fp16 path.
 
 ### How we found it
 
@@ -340,16 +349,17 @@ hunt for the N=8 overflow is documented as a follow-up.
 
 1. **Apply the v2 clamp** (`scripts/instruments/patch-clamp-v2-zero-degenerate.py`):
    stays on `--dtype float16`, full N=1/2/4/8 correctness, no
-   throughput penalty. **Recommended.**
+   throughput penalty. **Recommended.** The earlier `use_custom=False`
+   force-triton patch is NOT needed — the v2 clamp on the triton
+   prefix-prefill kernel is sufficient on its own; the C++
+   `paged_attention_rocm` decode kernel runs as upstream intends.
 2. **Use `--dtype bfloat16`** if you don't want to patch vLLM.
    Same end result; bf16's wider exponent absorbs the overflow
    naturally.
 3. **Long-term upstream fix:** the v2 clamp pattern (zero degenerate
    softmax rows + NaN-safe `tl.where` clamp) belongs in every
    `acc / (l_i + eps)` epilogue in vLLM's triton attention kernels
-   when the output dtype is fp16. The same fix should go into
-   `csrc/rocm/attention.cu` if anyone wants to keep `use_custom=True`
-   on the C++ paged-attention kernel.
+   when the output dtype is fp16. No C++ kernel change needed.
 
 ### Reverting all debug patches
 
