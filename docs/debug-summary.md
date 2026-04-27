@@ -257,6 +257,12 @@ Throughput with v2 clamp + native C++ paged-attn:
 ~36 / 58 / 112 / 211 t/s for N=1/2/4/8 — same range as the
 original/uncorrupted vLLM 0.19 fp16 path.
 
+**Eager-mode confirmation** (`--enforce-eager`, no CUDA graph capture)
+also passes 0/N at every N with v2 clamp applied:
+~3 / 4.8 / 13.6 / 25.1 t/s for N=1/2/4/8. This rules out CUDA graphs
+as a contributing factor — v2 clamp is genuinely the root-cause fix,
+not a graph-replay timing accident.
+
 ### How we found it
 
 1. After v1 clamp, ran the v4 NaN/inf probe on every Qwen3 decoder

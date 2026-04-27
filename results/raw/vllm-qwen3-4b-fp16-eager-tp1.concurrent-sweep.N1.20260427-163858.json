@@ -1,0 +1,36 @@
+{
+  "params": {
+    "n_clients": 1,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-4b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T16:38:58",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 79,
+      "ttft_s": 0.7343969345092773,
+      "elapsed_s": 26.3188533782959,
+      "tps": 3.0016505227065906,
+      "garbage": false,
+      "output_head": "<think> Okay, I need to write a Python function that reverses a string. Let me t"
+    }
+  ],
+  "summary": {
+    "wall_s": 26.32,
+    "total_tokens": 79,
+    "agg_tps": 3.0,
+    "avg_per_client_tps": 3.0,
+    "ok_clients": 1,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3-4b-fp16-eager-tp1",
+  "workload": "concurrent-sweep"
+}
