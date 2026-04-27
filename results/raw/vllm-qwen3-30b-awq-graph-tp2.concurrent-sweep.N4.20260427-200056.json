@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-30b-a3b"
+  },
+  "host": "kevin-System-Product-Name",
+  "ts": "2026-04-27T20:00:56",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 26,
+      "ttft_s": 6.584208011627197,
+      "elapsed_s": 15.202173948287964,
+      "tps": 1.7102817063166196,
+      "garbage": false,
+      "output_head": "<think>  </think>  ```python def reverse_string(s: str) -> str:     return s[::-"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 6.983551740646362,
+      "elapsed_s": 30.66532850265503,
+      "tps": 2.6088094896186593,
+      "garbage": false,
+      "output_head": "<think>  </think>  The Rust borrow checker enforces strict rules at compile time"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 6.988307237625122,
+      "elapsed_s": 30.67024254798889,
+      "tps": 2.608391501137501,
+      "garbage": false,
+      "output_head": "<think>  </think>  Unit 734 stood before the blank canvas, its optical sensors c"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 6.579467058181763,
+      "elapsed_s": 30.473405361175537,
+      "tps": 2.625239911714085,
+      "garbage": false,
+      "output_head": "<think>  </think>  Here are five surprising facts about octopuses that highlight"
+    }
+  ],
+  "summary": {
+    "wall_s": 30.67,
+    "total_tokens": 266,
+    "agg_tps": 8.67,
+    "avg_per_client_tps": 2.39,
+    "ok_clients": 4,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3-30b-awq-graph-tp2",
+  "workload": "concurrent-sweep"
+}
