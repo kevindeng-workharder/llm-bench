@@ -203,15 +203,70 @@ upstream of attention.py — it's specifically the prefix-prefill triton
 kernel, only on the fp16 path, only at the first-layer prefill stage,
 and only when prefill and decode are batched together.**
 
-Practical fix paths:
-1. **Use `--dtype bfloat16`.** Already verified: 0/8 garbage at N=8.
-   Same throughput.
-2. **Disable mixed prefill+decode batching** so prefill never lives
-   alongside decode. There's no clean knob for this in 0.19; would
-   need a scheduler change.
-3. **Patch `context_attention_fwd`** to keep the running accumulator
-   in fp32 and only cast to fp16 at `tl.store` time — should avoid
-   the mid-loop overflow.
+## Real fix verified (partial) — fp16-clamp every triton epilogue
+
+The triton attention kernels in vLLM 0.19 do their math in fp32 (`acc`,
+`l_i`, `m_i` are all `tl.float32`), apply the standard subtract-max
+softmax trick, and then in the epilogue do
+`acc = acc / (l_i + 1e-10)` and write the result through a fp16
+`tl.store` to the output buffer. For some token positions in mixed
+prefill+decode batches, `acc / l_i` produces an fp32 value above
+`fp16_max ≈ 65 504` — converting that to fp16 yields `inf`. Inf
+propagates as NaN one layer later.
+
+Patched the three kernel files in
+`vllm/v1/attention/ops/` to clamp the `acc` value into the fp16
+representable range RIGHT BEFORE `tl.store`:
+
+```python
+acc = acc / (l_i[:, None] + 1e-10)
+acc = tl.minimum(tl.maximum(acc, -65504.0), 65504.0)   # llm-bench fp16 fix
+tl.store(out_ptrs, acc, ...)
+```
+
+Patch sites:
+- `prefix_prefill.py` :: `_fwd_kernel` epilogue (line 336)
+- `prefix_prefill.py` :: `_fwd_kernel_alibi` epilogue (line 619)
+- `triton_prefill_attention.py` :: `_fwd_kernel` epilogue (line 168)
+- `chunked_prefill_paged_decode.py` :: `kernel_paged_attention_2d`
+  epilogue (line 233)
+- `triton_decode_attention.py` :: 3 inline `acc / e_sum` sites
+  (lines 178, 413, 574) — wrapped in `tl.minimum/tl.maximum`
+
+Patch scripts:
+- `scripts/instruments/patch-prefix-prefill-clamp.py` (the 2-site
+  prefix_prefill version)
+- `scripts/instruments/patch-all-triton-clamp.py` (the comprehensive
+  version covering all 4 files / 7 sites)
+
+Verified end-to-end on Qwen3-4B fp16 graph TP1 with
+`scripts/instruments/patch-all-triton-clamp.py` applied:
+
+| Config | N=1 | N=2 | N=4 | N=8 |
+|---|---|---|---|---|
+| **Before patch** | 0/1 | 0/2 | **2/4 bad** | **6/8 bad** |
+| **After triton clamp** | 0/1 | 0/2 | **0/4 ✅** | **4/8 bad** |
+
+So **N=1, 2, 4 are FULLY FIXED** by the triton-side clamp. N=8 still
+has 4/8 garbage — the residual is the **C++ `paged_attention_rocm`
+kernel** doing the same fp16 overflow on the decode side of larger
+mixed batches. That kernel is in `csrc/rocm/attention.cu` and would
+need either a similar clamp before its store, or rebuilding `_rocm_C.so`
+with the fix. We have not done the rebuild (multi-hour csrc compile on
+the riscv64 VM); for now the bf16 workaround covers it.
+
+## Practical fix paths
+
+1. **Use `--dtype bfloat16`.** Verified: 0/8 garbage at N=8 with no
+   changes to vLLM. Same throughput. **This is the recommended runtime
+   fix.**
+2. **Apply the triton-clamp patch** (above) and stay on `--dtype float16`:
+   covers N=1/2/4 cleanly; N=8 still loses some streams to the
+   un-patched C++ kernel.
+3. **Long-term upstream fix:** in vLLM `vllm/v1/attention/ops/*.py`,
+   guard every `acc / l_i` epilogue with the clamp-to-fp16-range trick
+   when the output dtype is fp16. Equivalent fix in `csrc/rocm/attention.cu`
+   for the C++ paged-attention kernel.
 
 ## Reproducer
 
