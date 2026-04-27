@@ -1,7 +1,30 @@
 #!/usr/bin/env python3
-"""One-shot script: turn the actual numbers we measured during the
-2026-04-26 investigation into JSON records that the standard `runner.report`
-aggregator can consume.
+"""⚠️  PLACEHOLDER DATA SEEDER — NOT real per-stream measurements.
+
+This script synthesises JSON files that LOOK like
+`runner.bench` output but are actually filled in from a few aggregate
+numbers (agg_tps, wall_s, ttft_s) that we eyeballed during the very
+first 2026-04-26 chat session — *before* the proper bench harness
+existed.
+
+What this means in practice:
+  - All `results[*].n_chunks` are floats (`agg_tps * wall_s / n_clients`)
+    rather than real per-stream token counts.
+  - All `results[*].ttft_s`, `elapsed_s`, `tps` are identical across
+    streams within a single run (synthesised uniformly).
+  - The aggregate numbers (agg_tps, wall_s) are roughly accurate for
+    decode-phase throughput but DO NOT account for prefill queueing
+    overhead. They will look ~2× too optimistic vs an actual end-to-end
+    bench harness measurement.
+
+If you are looking at a llamacpp- or vllm- bench file with timestamp
+20260426-104500, treat the numbers as a rough headline placeholder and
+prefer any later timestamp from the real harness (results created by
+runner/bench.py have integer n_chunks and varying per-stream stats).
+
+Kept around because the README's "headline numbers" table cites them.
+TODO(kevin): rerun the entire matrix through runner/bench.py and drop
+this seeder.
 
 After running this once, `python -m runner.report results/raw/` will
 produce a markdown digest that matches the README's headline table.
