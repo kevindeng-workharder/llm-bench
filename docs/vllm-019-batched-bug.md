@@ -62,6 +62,17 @@ buffering):
 The instrumentation patches live in `scripts/instruments/instrument-019-v*.py`
 so the chain is reproducible.
 
+### Dispatch-path control (2026-04-27)
+
+Discovered that the site-packages `attention.py` had been previously
+patched (annotated `[riscv-patch]`) to call `unified_attention_with_output(...)`
+directly instead of through `torch.ops.vllm.unified_attention_with_output(...)`
+dispatch. Compared the patched version against the source `/data/vllm-0.19`
+(plain `torch.ops.vllm.X` dispatch) and **both reproduce the bug
+identically** (2/4 garbage at N=4). So the dispatch path is not the
+issue — both paths end up calling the same broken backend kernel.
+Restored site-packages from source for cleanliness.
+
 ### Layer-by-layer drill-down (2026-04-27)
 
 Patched `Qwen3DecoderLayer.forward` to print per-row `max` after each
