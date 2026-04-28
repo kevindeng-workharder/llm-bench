@@ -28,6 +28,7 @@ VIRTUAL_ENV=~/.local/langgraph-venv uv pip install \
 |---|---|
 | `image-to-report.py` | image → Gemma vision describes it → Qwen3.6 composes a markdown report → Python saves to disk. Three-node graph, deterministic file write. |
 | `image-to-report-agent.py` | Same pipeline, but the reasoner uses real **OpenAI-style tool calls** (`write_file`/`read_file`/`list_files`) to drive the file write itself. Requires the llama.cpp launcher with `--jinja` (loads Qwen3.6's native chat template, which has tool-calling support). |
+| `ocr-to-json.py` | image with text → Gemma OCR (with `<DONE>` sentinel to suppress trailing hallucinations) → Qwen3.6 detects document type and extracts structured JSON (currency split into `{currency, amount}`, names split into native + latin, quantity strings parsed as ints, etc.). Three-node graph (ocr → structure → save). |
 
 ## Run
 
