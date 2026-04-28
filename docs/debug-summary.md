@@ -1,9 +1,23 @@
 # vLLM 0.19 fp16 batched-NaN bug — debug summary
 
-**Status: SOLVED (2026-04-27).** Fix lives in
-`scripts/instruments/patch-clamp-v2-zero-degenerate.py`. After applying,
-Qwen3-4B fp16 graph TP1 produces 0 garbage streams at N=1/2/4/8. See
-[Real fix verified (FULL)](#real-fix-verified-full--zero-degenerate-softmax-rows--nan-safe-clamp)
+**Status: SOLVED (2026-04-28).** Fix lives in **the vllm-riscv git fork**:
+
+🔗 https://github.com/kevindeng-workharder/vllm-riscv (branch `riscv-rocm-gfx1100`)
+
+The fix is the last commit on that branch
+(`fix: vLLM 0.19 fp16 batched-NaN — zero degenerate softmax rows`),
+and applies a NaN-safe `tl.where` clamp + zero-degenerate-rows guard at
+7 triton attention epilogue sites across 4 files. After installing the
+fork, Qwen3-4B / Qwen3-0.6B / Qwen3-30B-A3B-AWQ / Qwen2.5-14B / etc.
+all produce 0 garbage streams at N=1/2/4/8, in graph or eager mode,
+TP=1 or TP=2.
+
+The historical patch-script form is kept in `scripts/instruments/`
+(`patch-clamp-v2-zero-degenerate.py`, `patch-mla-v2-clamp.py`) for
+reproducibility of the bisection, but the **recommended install path is
+now `pip install .` from the vllm-riscv fork**.
+
+See [Real fix verified (FULL)](#real-fix-verified-full--zero-degenerate-softmax-rows--nan-safe-clamp)
 below for the actual mechanism.
 
 Concise narrative of how we narrowed the bug, what's confirmed, what's
