@@ -1,0 +1,582 @@
+{
+  "ts": "20260428-122500",
+  "experiment": "N=1 sequential stress test on vanilla vLLM 0.19 (no v2 clamp)",
+  "hypothesis": "N=1 sequential never triggers the bug because no mixed prefill+decode batches exist",
+  "config": {
+    "server": "vllm-qwen3-4b-fp16-graph-tp1",
+    "venv_state": "vanilla 0.19 (v2 clamp removed via revert-all-debug-patches.py)",
+    "max_model_len": 4096,
+    "temperature": 0.0
+  },
+  "passes": [
+    {
+      "name": "short_50",
+      "n_total": 50,
+      "n_garbage": 0,
+      "n_err": 0,
+      "results": [
+        {
+          "id": 0,
+          "prompt_tokens": 19,
+          "completion_tokens": 27,
+          "tps": 4.5,
+          "elapsed": 6.1,
+          "garbage": false,
+          "text_head": "</think>  ```python def reverse_string(s: str) -> s",
+          "ok": true
+        },
+        {
+          "id": 1,
+          "prompt_tokens": 20,
+          "completion_tokens": 84,
+          "tps": 6.1,
+          "elapsed": 13.7,
+          "garbage": false,
+          "text_head": "</think>  The Rust borrow checker enforces strict r",
+          "ok": true
+        },
+        {
+          "id": 2,
+          "prompt_tokens": 22,
+          "completion_tokens": 180,
+          "tps": 8.7,
+          "elapsed": 20.6,
+          "garbage": false,
+          "text_head": "</think>  Unit 734 stood before the blank canvas, i",
+          "ok": true
+        },
+        {
+          "id": 3,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 9.5,
+          "elapsed": 20.9,
+          "garbage": false,
+          "text_head": "</think>  Here are five surprising facts about octo",
+          "ok": true
+        },
+        {
+          "id": 4,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 10.2,
+          "elapsed": 19.6,
+          "garbage": false,
+          "text_head": "</think>  The main differences between **TCP** (Tra",
+          "ok": true
+        },
+        {
+          "id": 5,
+          "prompt_tokens": 16,
+          "completion_tokens": 23,
+          "tps": 4.6,
+          "elapsed": 5.1,
+          "garbage": false,
+          "text_head": "</think>  Steam rises gently, Warmth spreads throug",
+          "ok": true
+        },
+        {
+          "id": 6,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.4,
+          "elapsed": 17.5,
+          "garbage": false,
+          "text_head": "</think>  Here are three key differences between SQ",
+          "ok": true
+        },
+        {
+          "id": 7,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  Imagine you want to teach a robot how to",
+          "ok": true
+        },
+        {
+          "id": 8,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  In Rust, the **borrow checker** is a stat",
+          "ok": true
+        },
+        {
+          "id": 9,
+          "prompt_tokens": 17,
+          "completion_tokens": 35,
+          "tps": 8.3,
+          "elapsed": 4.2,
+          "garbage": false,
+          "text_head": "</think>  Golden leaves begin to fall, Whispering s",
+          "ok": true
+        },
+        {
+          "id": 10,
+          "prompt_tokens": 19,
+          "completion_tokens": 27,
+          "tps": 7.5,
+          "elapsed": 3.6,
+          "garbage": false,
+          "text_head": "</think>  ```python def reverse_string(s: str) -> s",
+          "ok": true
+        },
+        {
+          "id": 11,
+          "prompt_tokens": 20,
+          "completion_tokens": 84,
+          "tps": 9.0,
+          "elapsed": 9.3,
+          "garbage": false,
+          "text_head": "</think>  The Rust borrow checker enforces strict r",
+          "ok": true
+        },
+        {
+          "id": 12,
+          "prompt_tokens": 22,
+          "completion_tokens": 180,
+          "tps": 9.9,
+          "elapsed": 18.1,
+          "garbage": false,
+          "text_head": "</think>  Unit 734 stood before the blank canvas, i",
+          "ok": true
+        },
+        {
+          "id": 13,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 10.2,
+          "elapsed": 19.6,
+          "garbage": false,
+          "text_head": "</think>  Here are five surprising facts about octo",
+          "ok": true
+        },
+        {
+          "id": 14,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 10.2,
+          "elapsed": 19.6,
+          "garbage": false,
+          "text_head": "</think>  The main differences between **TCP** (Tra",
+          "ok": true
+        },
+        {
+          "id": 15,
+          "prompt_tokens": 16,
+          "completion_tokens": 23,
+          "tps": 6.2,
+          "elapsed": 3.7,
+          "garbage": false,
+          "text_head": "</think>  Steam rises gently, Warmth spreads throug",
+          "ok": true
+        },
+        {
+          "id": 16,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 10.4,
+          "elapsed": 19.3,
+          "garbage": false,
+          "text_head": "</think>  Here are three key differences between SQ",
+          "ok": true
+        },
+        {
+          "id": 17,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 11.4,
+          "elapsed": 17.6,
+          "garbage": false,
+          "text_head": "</think>  Imagine you want to teach a robot how to",
+          "ok": true
+        },
+        {
+          "id": 18,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  In Rust, the **borrow checker** is a stat",
+          "ok": true
+        },
+        {
+          "id": 19,
+          "prompt_tokens": 17,
+          "completion_tokens": 35,
+          "tps": 8.2,
+          "elapsed": 4.3,
+          "garbage": false,
+          "text_head": "</think>  Golden leaves begin to fall, Whispering s",
+          "ok": true
+        },
+        {
+          "id": 20,
+          "prompt_tokens": 19,
+          "completion_tokens": 27,
+          "tps": 4.9,
+          "elapsed": 5.5,
+          "garbage": false,
+          "text_head": "</think>  ```python def reverse_string(s: str) -> s",
+          "ok": true
+        },
+        {
+          "id": 21,
+          "prompt_tokens": 20,
+          "completion_tokens": 84,
+          "tps": 10.0,
+          "elapsed": 8.4,
+          "garbage": false,
+          "text_head": "</think>  The Rust borrow checker enforces strict r",
+          "ok": true
+        },
+        {
+          "id": 22,
+          "prompt_tokens": 22,
+          "completion_tokens": 180,
+          "tps": 11.3,
+          "elapsed": 16.0,
+          "garbage": false,
+          "text_head": "</think>  Unit 734 stood before the blank canvas, i",
+          "ok": true
+        },
+        {
+          "id": 23,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  Here are five surprising facts about octo",
+          "ok": true
+        },
+        {
+          "id": 24,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 11.6,
+          "elapsed": 17.3,
+          "garbage": false,
+          "text_head": "</think>  The main differences between **TCP** (Tra",
+          "ok": true
+        },
+        {
+          "id": 25,
+          "prompt_tokens": 16,
+          "completion_tokens": 23,
+          "tps": 7.0,
+          "elapsed": 3.3,
+          "garbage": false,
+          "text_head": "</think>  Steam rises gently, Warmth spreads throug",
+          "ok": true
+        },
+        {
+          "id": 26,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  Here are three key differences between SQ",
+          "ok": true
+        },
+        {
+          "id": 27,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  Imagine you want to teach a robot how to",
+          "ok": true
+        },
+        {
+          "id": 28,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  In Rust, the **borrow checker** is a stat",
+          "ok": true
+        },
+        {
+          "id": 29,
+          "prompt_tokens": 17,
+          "completion_tokens": 35,
+          "tps": 8.3,
+          "elapsed": 4.2,
+          "garbage": false,
+          "text_head": "</think>  Golden leaves begin to fall, Whispering s",
+          "ok": true
+        },
+        {
+          "id": 30,
+          "prompt_tokens": 19,
+          "completion_tokens": 27,
+          "tps": 7.4,
+          "elapsed": 3.7,
+          "garbage": false,
+          "text_head": "</think>  ```python def reverse_string(s: str) -> s",
+          "ok": true
+        },
+        {
+          "id": 31,
+          "prompt_tokens": 20,
+          "completion_tokens": 84,
+          "tps": 10.1,
+          "elapsed": 8.3,
+          "garbage": false,
+          "text_head": "</think>  The Rust borrow checker enforces strict r",
+          "ok": true
+        },
+        {
+          "id": 32,
+          "prompt_tokens": 22,
+          "completion_tokens": 180,
+          "tps": 11.2,
+          "elapsed": 16.0,
+          "garbage": false,
+          "text_head": "</think>  Unit 734 stood before the blank canvas, i",
+          "ok": true
+        },
+        {
+          "id": 33,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  Here are five surprising facts about octo",
+          "ok": true
+        },
+        {
+          "id": 34,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  The main differences between **TCP** (Tra",
+          "ok": true
+        },
+        {
+          "id": 35,
+          "prompt_tokens": 16,
+          "completion_tokens": 23,
+          "tps": 4.6,
+          "elapsed": 5.0,
+          "garbage": false,
+          "text_head": "</think>  Steam rises gently, Warmth spreads throug",
+          "ok": true
+        },
+        {
+          "id": 36,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.4,
+          "elapsed": 17.5,
+          "garbage": false,
+          "text_head": "</think>  Here are three key differences between SQ",
+          "ok": true
+        },
+        {
+          "id": 37,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 11.4,
+          "elapsed": 17.5,
+          "garbage": false,
+          "text_head": "</think>  Imagine you want to teach a robot how to",
+          "ok": true
+        },
+        {
+          "id": 38,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 11.5,
+          "elapsed": 17.4,
+          "garbage": false,
+          "text_head": "</think>  In Rust, the **borrow checker** is a stat",
+          "ok": true
+        },
+        {
+          "id": 39,
+          "prompt_tokens": 17,
+          "completion_tokens": 35,
+          "tps": 8.2,
+          "elapsed": 4.3,
+          "garbage": false,
+          "text_head": "</think>  Golden leaves begin to fall, Whispering s",
+          "ok": true
+        },
+        {
+          "id": 40,
+          "prompt_tokens": 19,
+          "completion_tokens": 27,
+          "tps": 7.4,
+          "elapsed": 3.6,
+          "garbage": false,
+          "text_head": "</think>  ```python def reverse_string(s: str) -> s",
+          "ok": true
+        },
+        {
+          "id": 41,
+          "prompt_tokens": 20,
+          "completion_tokens": 84,
+          "tps": 6.7,
+          "elapsed": 12.6,
+          "garbage": false,
+          "text_head": "</think>  The Rust borrow checker enforces strict r",
+          "ok": true
+        },
+        {
+          "id": 42,
+          "prompt_tokens": 22,
+          "completion_tokens": 180,
+          "tps": 8.0,
+          "elapsed": 22.5,
+          "garbage": false,
+          "text_head": "</think>  Unit 734 stood before the blank canvas, i",
+          "ok": true
+        },
+        {
+          "id": 43,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 8.2,
+          "elapsed": 24.3,
+          "garbage": false,
+          "text_head": "</think>  Here are five surprising facts about octo",
+          "ok": true
+        },
+        {
+          "id": 44,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 8.3,
+          "elapsed": 24.1,
+          "garbage": false,
+          "text_head": "</think>  The main differences between **TCP** (Tra",
+          "ok": true
+        },
+        {
+          "id": 45,
+          "prompt_tokens": 16,
+          "completion_tokens": 23,
+          "tps": 5.0,
+          "elapsed": 4.6,
+          "garbage": false,
+          "text_head": "</think>  Steam rises gently, Warmth spreads throug",
+          "ok": true
+        },
+        {
+          "id": 46,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 8.3,
+          "elapsed": 24.2,
+          "garbage": false,
+          "text_head": "</think>  Here are three key differences between SQ",
+          "ok": true
+        },
+        {
+          "id": 47,
+          "prompt_tokens": 19,
+          "completion_tokens": 200,
+          "tps": 8.2,
+          "elapsed": 24.5,
+          "garbage": false,
+          "text_head": "</think>  Imagine you want to teach a robot how to",
+          "ok": true
+        },
+        {
+          "id": 48,
+          "prompt_tokens": 18,
+          "completion_tokens": 200,
+          "tps": 8.2,
+          "elapsed": 24.5,
+          "garbage": false,
+          "text_head": "</think>  In Rust, the **borrow checker** is a stat",
+          "ok": true
+        },
+        {
+          "id": 49,
+          "prompt_tokens": 17,
+          "completion_tokens": 35,
+          "tps": 5.9,
+          "elapsed": 6.0,
+          "garbage": false,
+          "text_head": "</think>  Golden leaves begin to fall, Whispering s",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "name": "long_5",
+      "n_total": 5,
+      "n_garbage": 0,
+      "n_err": 0,
+      "results": [
+        {
+          "id": 0,
+          "prompt_tokens": 1315,
+          "completion_tokens": 27,
+          "tps": 1.0,
+          "elapsed": 27.4,
+          "garbage": false,
+          "text_head": "</think>  The passage consists of a repetitive sequ",
+          "ok": true
+        },
+        {
+          "id": 1,
+          "prompt_tokens": 1317,
+          "completion_tokens": 200,
+          "tps": 3.2,
+          "elapsed": 63.3,
+          "garbage": false,
+          "text_head": "</think>  To determine how many times the word **'q",
+          "ok": true
+        },
+        {
+          "id": 2,
+          "prompt_tokens": 1314,
+          "completion_tokens": 200,
+          "tps": 4.3,
+          "elapsed": 46.7,
+          "garbage": false,
+          "text_head": "</think>  From a strict **grammatical** standpoint,",
+          "ok": true
+        },
+        {
+          "id": 3,
+          "prompt_tokens": 1315,
+          "completion_tokens": 27,
+          "tps": 9.6,
+          "elapsed": 2.8,
+          "garbage": false,
+          "text_head": "</think>  The passage consists of a repetitive sequ",
+          "ok": true
+        },
+        {
+          "id": 4,
+          "prompt_tokens": 1317,
+          "completion_tokens": 200,
+          "tps": 10.1,
+          "elapsed": 19.8,
+          "garbage": false,
+          "text_head": "</think>  To determine how many times the word **'q",
+          "ok": true
+        }
+      ]
+    }
+  ],
+  "overall_garbage": 0,
+  "overall_total": 55,
+  "conclusion": "55 sequential N=1 requests, 0 garbage. Hypothesis confirmed: bug requires mixed prefill+decode batching, which N=1 sequential never produces."
+}
