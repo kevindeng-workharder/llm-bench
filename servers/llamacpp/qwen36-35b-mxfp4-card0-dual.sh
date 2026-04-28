@@ -23,7 +23,7 @@ exec /opt/llama/bin/llama-server \
     --host 0.0.0.0 --port 8001 \
     --threads 8 \
     --no-mmap \
-    --chat-template chatml \
+    --jinja \
     --cache-ram 0 \
     --temp 0.7 --top-p 0.95 --top-k 40 --min-p 0.0 \
     --repeat-penalty 1.05

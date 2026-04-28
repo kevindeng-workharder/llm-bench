@@ -26,7 +26,8 @@ VIRTUAL_ENV=~/.local/langgraph-venv uv pip install \
 
 | Script | What it does |
 |---|---|
-| `image-to-report.py` | image → Gemma vision describes it → Qwen3.6 composes a markdown report → Python saves to disk. Three-node graph. |
+| `image-to-report.py` | image → Gemma vision describes it → Qwen3.6 composes a markdown report → Python saves to disk. Three-node graph, deterministic file write. |
+| `image-to-report-agent.py` | Same pipeline, but the reasoner uses real **OpenAI-style tool calls** (`write_file`/`read_file`/`list_files`) to drive the file write itself. Requires the llama.cpp launcher with `--jinja` (loads Qwen3.6's native chat template, which has tool-calling support). |
 
 ## Run
 
@@ -50,18 +51,29 @@ You should see three node prints:
 [3/3 save_report] wrote 1220 bytes to /tmp/cat-report.md
 ```
 
-## Why no LLM-driven `write_file` tool calling
+## Tool calling: chatml vs --jinja
 
-The earliest version of `image-to-report.py` had Qwen3.6 invoke a
-`write_file(path, content)` tool to save the report itself. Reality:
-Qwen3.6 on llama.cpp's chatml template emits broken tool-call format
-(unmatched `</parameter>` tags, ChatML/Hermes mix), and the small
-gemma-4-E2B is even worse at OpenAI-style function calling. Keeping
-the file write in pure Python (`save_report` node) is deterministic
-and side-steps all of that. If you need the LLM to drive arbitrary
-tool calls, run llama.cpp with `--jinja` to use the model's own
-function-calling chat template, or switch to a vLLM-served reasoner
-that handles tool calling reliably (e.g. Qwen3-30B-AWQ).
+llama.cpp can be launched two ways:
+
+  --chat-template chatml   → simple ChatML, NO tool calling support
+  --jinja                  → load the model's native jinja template
+
+The `qwen36-35b-mxfp4-card0-dual.sh` launcher uses `--jinja` so
+Qwen3.6's native chat template (with proper OpenAI function-calling
+protocol) is active. Verified end-to-end: model emits real OpenAI
+`tool_calls` JSON, LangGraph's `ToolNode` executes the function, and
+the result feeds back to the LLM until it answers without further
+tool calls.
+
+The deterministic non-tool-call variant (`image-to-report.py`) is
+still kept around for two reasons:
+1. It's strictly more predictable (no agent loop, no recursion limit).
+2. If you swap the reasoner to a model with worse tool-call support
+   (e.g. gemma-4-E2B), the python-driven version still works.
+
+Note: Gemma-4-E2B's OpenAI function-calling compatibility is known to
+be weaker than Qwen3.6 — Google trained Gemma for its own tool format,
+not OpenAI's. Keep tool-calling on the Qwen side, file ops there too.
 
 ## Caveats specific to this hardware path
 
