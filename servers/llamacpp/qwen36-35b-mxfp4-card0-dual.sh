@@ -16,7 +16,7 @@ exec /opt/llama/bin/llama-server \
     --alias qwen36-a3b \
     -ngl 99 \
     -mg 0 --split-mode none \
-    -c 8192 \
+    -c 16384 \
     --parallel 2 \
     --cont-batching \
     --flash-attn on \
@@ -24,6 +24,7 @@ exec /opt/llama/bin/llama-server \
     --threads 8 \
     --no-mmap \
     --jinja \
+    --reasoning-format none \
     --cache-ram 0 \
     --temp 0.7 --top-p 0.95 --top-k 40 --min-p 0.0 \
     --repeat-penalty 1.05
