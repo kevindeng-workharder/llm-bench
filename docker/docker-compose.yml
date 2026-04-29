@@ -1,0 +1,80 @@
+# docker-compose for the dual-engine setup: Qwen via llama.cpp on card0,
+# Qwen3 via vLLM on card1. Both expose OpenAI-compatible APIs in parallel.
+#
+# Layout: each container binds to ONE render node (one physical GPU).
+#   /dev/dri/renderD128  → card0  (in our test VM: 7900 XT  20 GB, GPU=0)
+#   /dev/dri/renderD129  → card1  (in our test VM: 7900 XTX 24 GB, GPU=1)
+# /dev/kfd is shared (ROCm KFD is a single device for both GPUs).
+#
+# Edit MODELS_DIR in the env or via shell var to point at your model dir.
+# Defaults to /data on the host (matches the VM's data-disk mount point).
+#
+# Usage:
+#   cd /home/kevin/llm-bench/docker
+#   docker compose up -d
+#   docker compose logs -f
+#   docker compose down
+
+services:
+
+  qwen-llamacpp:
+    image: inference:riscv64
+    container_name: qwen-llamacpp
+    restart: unless-stopped
+    devices:
+      - /dev/kfd
+      - /dev/dri/renderD128         # card0
+    group_add:
+      - "44"                        # video
+      - "991"                       # render (clean ubuntu VM GID; adjust if different)
+    ipc: host
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    shm_size: "4gb"
+    volumes:
+      - ${MODELS_DIR:-/data}:/data:ro
+    ports:
+      - "8001:8001"
+    environment:
+      ENGINE: llamacpp
+      MODEL: /data/Qwen2.5-1.5B-Instruct-Q4_0.gguf
+      ALIAS: qwen2.5-1.5b
+      GPU: "0"                      # ROCR_VISIBLE_DEVICES=0 → first visible card
+      PORT: "8001"
+      PARALLEL: "2"
+      CTX: "16384"
+
+  qwen3-vllm:
+    image: inference:riscv64
+    container_name: qwen3-vllm
+    restart: unless-stopped
+    devices:
+      - /dev/kfd
+      - /dev/dri/renderD129         # card1
+    group_add:
+      - "44"
+      - "991"
+    ipc: host
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    shm_size: "8gb"
+    volumes:
+      - ${MODELS_DIR:-/data}:/data:ro
+    ports:
+      - "8002:8002"
+    environment:
+      ENGINE: vllm
+      MODEL: /data/Qwen3-0.6B
+      SERVED_NAME: qwen3-0.6b
+      GPU: "0"                      # only one card visible inside container → always 0
+      PORT: "8002"
+      MAX_NUM_SEQS: "2"
+      MAX_MODEL_LEN: "2048"
+      DTYPE: "bfloat16"
+      GPU_MEM_UTIL: "0.85"          # full card available — no need to share
+      CUDAGRAPH_MODE: "FULL_DECODE_ONLY"
+      # CUDAGRAPH_CAPTURE_SIZES: "[1,2,4,8]" (default in entrypoint, required on this riscv build)

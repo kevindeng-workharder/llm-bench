@@ -1,0 +1,7 @@
+# Payload tarballs are extracted from the VM disk image at build time.
+# They are several GB in total — do NOT commit them. Re-generate with
+# build.sh which mounts the VM image read-only and tars /opt/llama,
+# /opt/rocm-riscv, and /home/ubuntu/ai-2.10.
+payload/*.tar.gz
+payload/*.tar
+inference-riscv64.tar

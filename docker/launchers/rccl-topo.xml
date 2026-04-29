@@ -1,0 +1,20 @@
+<!-- RCCL topology file for vLLM OpenAI server on riscv64 VM.
+     RCCL 2.20.5 requires version="2". On riscv64 the auto-detection path
+     reads /sys/.../arch which doesn't exist -> "Attribute arch of node
+     cpu not found" error. Supplying this file skips auto-detection.
+
+     busid values assume the VM sees GPUs at 00:01.0 and 00:03.0 (typical
+     QEMU vfio-pci layout for two VGA passthroughs with their HDMI audio
+     companions at 00:02.0 and 00:04.0). arch="x86_64" is a lie that RCCL
+     accepts; it only affects bandwidth estimates in the plan graph which
+     we override via NCCL_P2P_DISABLE=1 anyway. -->
+<system version="2">
+  <cpu host_hash="0xabc" numaid="0" affinity="ffff" arch="x86_64" vendor="GenuineIntel" familyid="6" modelid="71">
+    <pci busid="0000:00:01.0" class="0x030000" vendor="0x1002" device="0x744c" subsystem_vendor="0x1002" subsystem_device="0x0e37" link_speed="16.0 GT/s PCIe" link_width="16">
+      <gpu dev="0" sm="90" rank="0" gdr="0"/>
+    </pci>
+    <pci busid="0000:00:03.0" class="0x030000" vendor="0x1002" device="0x744c" subsystem_vendor="0x1002" subsystem_device="0x0e37" link_speed="16.0 GT/s PCIe" link_width="16">
+      <gpu dev="1" sm="90" rank="1" gdr="0"/>
+    </pci>
+  </cpu>
+</system>
