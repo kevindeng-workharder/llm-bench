@@ -53,16 +53,21 @@ export VLLM_ENABLE_V1_MULTIPROCESSING="${VLLM_ENABLE_V1_MULTIPROCESSING:-0}"
 # install-runtime-stubs.sh, but also export VLLM_NCCL_SO_PATH for safety.
 export VLLM_NCCL_SO_PATH="${ROCM_PREFIX}/lib/librccl.so.1"
 
-# Disable NCCL transports that don't work in riscv-QEMU:
-# - P2P: VFIO doesn't expose P2P DMA between GPU BARs in guest
-# - SHM: shared memory across workers is serialized through QEMU
-# - IB:  no InfiniBand
-# Fall back to Socket (TCP over loopback) which works but is the slowest path.
-export NCCL_P2P_DISABLE=1
-export NCCL_SHM_DISABLE=1
-export NCCL_IB_DISABLE=1
-export RCCL_MSCCL_ENABLE=0
-export NCCL_IGNORE_CPU_AFFINITY=1
+# NCCL transport selection in riscv-QEMU + VFIO setup. Verified empirically
+# with vLLM TP=2 + Qwen3-4B + bf16:
+#   - P2P (BAR-direct GPU↔GPU DMA): VFIO does NOT expose peer access between
+#     the passed-through cards, so RCCL probes and falls back. Default-disable
+#     to skip the probe.
+#   - SHM (host-RAM ferry between worker processes): WORKS — RCCL picks
+#     "via SHM/direct/direct" and gives ~2.2× throughput vs Socket fallback
+#     (20.7 tok/s vs 9.6 tok/s on the 4B model). Default-enable.
+#   - IB / NVLink / collnet: not present in this setup.
+# All four use ${VAR:-...} so a `docker run -e NCCL_*` override actually wins.
+export NCCL_P2P_DISABLE="${NCCL_P2P_DISABLE:-1}"
+export NCCL_SHM_DISABLE="${NCCL_SHM_DISABLE:-0}"
+export NCCL_IB_DISABLE="${NCCL_IB_DISABLE:-1}"
+export RCCL_MSCCL_ENABLE="${RCCL_MSCCL_ENABLE:-0}"
+export NCCL_IGNORE_CPU_AFFINITY="${NCCL_IGNORE_CPU_AFFINITY:-1}"
 
 # RCCL topology autodiscovery reads /sys/.../arch on x86 but fails on
 # riscv64. Point at a hand-crafted topo XML (version 2 required).
