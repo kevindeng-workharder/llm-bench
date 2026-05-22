@@ -1,0 +1,36 @@
+{
+  "params": {
+    "n_clients": 1,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3_6-27b-awq"
+  },
+  "host": "ubuntu",
+  "ts": "2026-05-22T03:34:42",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 4.805448532104492,
+      "elapsed_s": 9.108217239379883,
+      "tps": 8.783277550091313,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Understand User Request:** The user wants a sh"
+    }
+  ],
+  "summary": {
+    "wall_s": 9.11,
+    "total_tokens": 80,
+    "agg_tps": 8.78,
+    "avg_per_client_tps": 8.78,
+    "ok_clients": 1,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3_6-27b-awq-graph-tp2",
+  "workload": "concurrent-sweep"
+}

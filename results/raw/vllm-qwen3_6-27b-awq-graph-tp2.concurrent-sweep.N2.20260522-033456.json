@@ -1,0 +1,47 @@
+{
+  "params": {
+    "n_clients": 2,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3_6-27b-awq"
+  },
+  "host": "ubuntu",
+  "ts": "2026-05-22T03:34:56",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 9.107787370681763,
+      "elapsed_s": 13.719735145568848,
+      "tps": 5.831016353536397,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Understand User Request:** The user wants a sh"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 4.286833047866821,
+      "elapsed_s": 13.331708192825317,
+      "tps": 6.00073140237598,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Analyze User Input:**    - **Topic:** Rust bor"
+    }
+  ],
+  "summary": {
+    "wall_s": 13.72,
+    "total_tokens": 160,
+    "agg_tps": 11.66,
+    "avg_per_client_tps": 5.92,
+    "ok_clients": 2,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3_6-27b-awq-graph-tp2",
+  "workload": "concurrent-sweep"
+}

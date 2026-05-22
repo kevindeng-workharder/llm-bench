@@ -1,0 +1,113 @@
+{
+  "params": {
+    "n_clients": 8,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3_6-27b-awq"
+  },
+  "host": "ubuntu",
+  "ts": "2026-05-22T03:35:35",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 13.585892915725708,
+      "elapsed_s": 18.83376908302307,
+      "tps": 4.247689331187177,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Understand User Request:** The user wants a sh"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 13.586022853851318,
+      "elapsed_s": 18.83442258834839,
+      "tps": 4.247541947449491,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Analyze User Input:**    - **Topic:** Rust bor"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 9.45720648765564,
+      "elapsed_s": 18.75049638748169,
+      "tps": 4.266553713927811,
+      "garbage": false,
+      "output_head": "Thinking Process:  1.  **Deconstruct the prompt:**     *   Topic: A robot learni"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 4.315413236618042,
+      "elapsed_s": 18.675613403320312,
+      "tps": 4.283661172048941,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Analyze User Request:**    - **Topic:** Octopu"
+    },
+    {
+      "id": 4,
+      "ok": true,
+      "prompt_short": "What's the difference between TCP and UDP? Brief.",
+      "n_chunks": 80,
+      "ttft_s": 13.584966897964478,
+      "elapsed_s": 18.833951234817505,
+      "tps": 4.247648249832329,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Analyze User Input:**    - **Question:** What'"
+    },
+    {
+      "id": 5,
+      "ok": true,
+      "prompt_short": "Compose a 4-line poem about morning coffee.",
+      "n_chunks": 80,
+      "ttft_s": 13.585227727890015,
+      "elapsed_s": 18.83373522758484,
+      "tps": 4.247696966814526,
+      "garbage": false,
+      "output_head": "Thinking Process:  1.  **Deconstruct the request:**     *   Topic: Morning coffe"
+    },
+    {
+      "id": 6,
+      "ok": true,
+      "prompt_short": "List 3 differences between SQL and NoSQL databases",
+      "n_chunks": 80,
+      "ttft_s": 13.58447265625,
+      "elapsed_s": 18.83361291885376,
+      "tps": 4.247724552091353,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Understand User Request:** The user wants 3 di"
+    },
+    {
+      "id": 7,
+      "ok": true,
+      "prompt_short": "How does a neural network learn? Explain like I'm ",
+      "n_chunks": 80,
+      "ttft_s": 13.584754943847656,
+      "elapsed_s": 18.832908630371094,
+      "tps": 4.247883402937937,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Understand User Request:**    - **Topic:** How"
+    }
+  ],
+  "summary": {
+    "wall_s": 18.84,
+    "total_tokens": 640,
+    "agg_tps": 33.98,
+    "avg_per_client_tps": 4.25,
+    "ok_clients": 8,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3_6-27b-awq-graph-tp2",
+  "workload": "concurrent-sweep"
+}

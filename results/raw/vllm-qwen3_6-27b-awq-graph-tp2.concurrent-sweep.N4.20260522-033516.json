@@ -1,0 +1,69 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3_6-27b-awq"
+  },
+  "host": "ubuntu",
+  "ts": "2026-05-22T03:35:16",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 4.286975145339966,
+      "elapsed_s": 20.62644648551941,
+      "tps": 3.8785158682647154,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Understand User Request:** The user wants a sh"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 16.00703191757202,
+      "elapsed_s": 20.784449338912964,
+      "tps": 3.8490314896254083,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Analyze User Input:**    - **Topic:** Rust bor"
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 16.006879568099976,
+      "elapsed_s": 20.78392767906189,
+      "tps": 3.8491280972168447,
+      "garbage": false,
+      "output_head": "Thinking Process:  1.  **Deconstruct the prompt:**     *   Topic: A robot learni"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 16.006540060043335,
+      "elapsed_s": 20.784133434295654,
+      "tps": 3.8490899922723236,
+      "garbage": false,
+      "output_head": "Here's a thinking process:  1.  **Analyze User Request:**    - **Topic:** Octopu"
+    }
+  ],
+  "summary": {
+    "wall_s": 20.79,
+    "total_tokens": 320,
+    "agg_tps": 15.4,
+    "avg_per_client_tps": 3.86,
+    "ok_clients": 4,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3_6-27b-awq-graph-tp2",
+  "workload": "concurrent-sweep"
+}

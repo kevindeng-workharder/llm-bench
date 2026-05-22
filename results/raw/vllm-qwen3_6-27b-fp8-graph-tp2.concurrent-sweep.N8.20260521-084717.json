@@ -1,0 +1,73 @@
+{
+  "params": {
+    "n_clients": 8,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3_6-27b-fp8"
+  },
+  "host": "ubuntu",
+  "ts": "2026-05-21T08:47:17",
+  "results": [
+    {
+      "id": 0,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.025939226150512695
+    },
+    {
+      "id": 1,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.022135019302368164
+    },
+    {
+      "id": 2,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.02660846710205078
+    },
+    {
+      "id": 3,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.023766517639160156
+    },
+    {
+      "id": 4,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.024106740951538086
+    },
+    {
+      "id": 5,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.019563674926757812
+    },
+    {
+      "id": 6,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.017240524291992188
+    },
+    {
+      "id": 7,
+      "ok": false,
+      "err": "Server disconnected without sending a response.",
+      "elapsed": 0.018644094467163086
+    }
+  ],
+  "summary": {
+    "wall_s": 0.03,
+    "total_tokens": 0,
+    "agg_tps": 0.0,
+    "avg_per_client_tps": 0,
+    "ok_clients": 0,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3_6-27b-fp8-graph-tp2",
+  "workload": "concurrent-sweep"
+}

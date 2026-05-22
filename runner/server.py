@@ -13,6 +13,7 @@ Usage:
 """
 from __future__ import annotations
 import contextlib
+import os
 import shlex
 import socket
 import subprocess
@@ -22,8 +23,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_VM_HOST = "ubuntu@localhost"
-DEFAULT_VM_PORT = "2222"
+DEFAULT_VM_HOST = os.environ.get("VM_HOST", "ubuntu@localhost")
+DEFAULT_VM_PORT = os.environ.get("VM_PORT", "2222")
 DEFAULT_LOCAL_PORT = 8000
 DEFAULT_REMOTE_PORT = 8000
 

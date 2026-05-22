@@ -139,6 +139,51 @@ servers:
   quantization: bf16
   served_model_name: qwen3-4b
   tp: 1
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3_6-27b-fp8-graph-tp2.sh
+  model: Qwen3.6-27B-FP8
+  name: vllm-qwen3_6-27b-fp8-graph-tp2
+  notes: 'Dense FP8 (block 128x128) multimodal qwen3_5 ckpt, text-only. 27B needs
+    TP=2 (won''t fit one 24GB card). First start slow: fp8 W8A8 triton compile.'
+  quantization: fp8
+  ready_timeout_s: 1800
+  served_model_name: qwen3_6-27b-fp8
+  tp: 2
+- compilation: eager
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3_6-27b-fp8-eager-tp2.sh
+  model: Qwen3.6-27B-FP8
+  name: vllm-qwen3_6-27b-fp8-eager-tp2
+  notes: 'Eager sibling of the graph-tp2 config; no CUDAGraph capture.'
+  quantization: fp8
+  ready_timeout_s: 1800
+  served_model_name: qwen3_6-27b-fp8
+  tp: 2
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3_6-27b-awq-graph-tp2.sh
+  model: Qwen3.6-27B-AWQ
+  name: vllm-qwen3_6-27b-awq-graph-tp2
+  notes: 'int4 AWQ (W4A16 group128 gemm), ~half the FP8 bytes, mature awq gemm
+    kernels. qwen3_5 multimodal ckpt, text-only. First start compiles the
+    linear-attention (gated-delta) + quant triton kernels — slow on riscv, so
+    the timeout is large; subsequent starts hit the persistent triton cache.'
+  quantization: awq
+  ready_timeout_s: 5400
+  served_model_name: qwen3_6-27b-awq
+  tp: 2
+- compilation: graph
+  engine: vllm
+  launch_remote_path: /home/ubuntu/llm-bench/servers/vllm/qwen3_6-27b-quark-int8-graph-tp2.sh
+  model: Qwen3.6-27B-Quark-W8A8-INT8
+  name: vllm-qwen3_6-27b-quark-int8-graph-tp2
+  notes: 'Quark W8A8-INT8 (per-tensor int8 weights+acts, pack reorder). qwen3_5
+    multimodal ckpt, text-only. SHM transport (socket deadlocks at N>=2).'
+  quantization: quark
+  ready_timeout_s: 5400
+  served_model_name: qwen3_6-27b-quark-int8
+  tp: 2
 workloads:
 - description: 'Standard concurrent stress: 16 unique prompts, deterministic sampling'
   max_tokens: 80

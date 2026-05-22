@@ -1,0 +1,49 @@
+{
+  "params": {
+    "n_clients": 4,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3_6-27b-fp8"
+  },
+  "host": "ubuntu",
+  "ts": "2026-05-21T08:47:17",
+  "results": [
+    {
+      "id": 0,
+      "ok": false,
+      "err": "HTTP 500: {\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}",
+      "elapsed": 0.06350898742675781
+    },
+    {
+      "id": 1,
+      "ok": false,
+      "err": "HTTP 500: {\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}",
+      "elapsed": 0.08353424072265625
+    },
+    {
+      "id": 2,
+      "ok": false,
+      "err": "HTTP 500: {\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}",
+      "elapsed": 0.08370256423950195
+    },
+    {
+      "id": 3,
+      "ok": false,
+      "err": "HTTP 500: {\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}",
+      "elapsed": 0.08307385444641113
+    }
+  ],
+  "summary": {
+    "wall_s": 0.08,
+    "total_tokens": 0,
+    "agg_tps": 0.0,
+    "avg_per_client_tps": 0,
+    "ok_clients": 0,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3_6-27b-fp8-graph-tp2",
+  "workload": "concurrent-sweep"
+}
