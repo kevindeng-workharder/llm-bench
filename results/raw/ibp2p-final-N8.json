@@ -1,0 +1,112 @@
+{
+  "params": {
+    "n_clients": 8,
+    "max_tokens": 80,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "unique_prompts": true,
+    "url": "http://localhost:8000",
+    "model": "qwen3-4b"
+  },
+  "host": "ubuntu",
+  "ts": "2026-05-25T12:38:23",
+  "results": [
+    {
+      "id": 0,
+      "ok": true,
+      "prompt_short": "Write a short Python function that reverses a stri",
+      "n_chunks": 80,
+      "ttft_s": 2.5531322956085205,
+      "elapsed_s": 9.116888999938965,
+      "tps": 8.774923112537136,
+      "garbage": false,
+      "output_head": "<think> Okay, I need to write a Python function that reverses a string. Let me t"
+    },
+    {
+      "id": 1,
+      "ok": true,
+      "prompt_short": "Explain in 3 sentences what Rust borrow checker do",
+      "n_chunks": 80,
+      "ttft_s": 1.2638132572174072,
+      "elapsed_s": 8.952378988265991,
+      "tps": 8.93617217332478,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants me to explain what the Rust borrow checker does in "
+    },
+    {
+      "id": 2,
+      "ok": true,
+      "prompt_short": "Tell me a one-paragraph story about a robot learni",
+      "n_chunks": 80,
+      "ttft_s": 2.5505497455596924,
+      "elapsed_s": 9.115768194198608,
+      "tps": 8.776002010550577,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants a one-paragraph story about a robot learning to pai"
+    },
+    {
+      "id": 3,
+      "ok": true,
+      "prompt_short": "Give 5 surprising facts about octopuses.",
+      "n_chunks": 80,
+      "ttft_s": 2.5522422790527344,
+      "elapsed_s": 9.116466760635376,
+      "tps": 8.775329532866564,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants five surprising facts about octopuses. Let me start"
+    },
+    {
+      "id": 4,
+      "ok": true,
+      "prompt_short": "What's the difference between TCP and UDP? Brief.",
+      "n_chunks": 80,
+      "ttft_s": 2.552217960357666,
+      "elapsed_s": 9.116352319717407,
+      "tps": 8.775439692800274,
+      "garbage": false,
+      "output_head": "<think> Okay, the user is asking about the difference between TCP and UDP. They "
+    },
+    {
+      "id": 5,
+      "ok": true,
+      "prompt_short": "Compose a 4-line poem about morning coffee.",
+      "n_chunks": 80,
+      "ttft_s": 2.5520334243774414,
+      "elapsed_s": 9.115663051605225,
+      "tps": 8.77610323539903,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants a 4-line poem about morning coffee. Let me start by"
+    },
+    {
+      "id": 6,
+      "ok": true,
+      "prompt_short": "List 3 differences between SQL and NoSQL databases",
+      "n_chunks": 80,
+      "ttft_s": 2.551496744155884,
+      "elapsed_s": 9.115512609481812,
+      "tps": 8.77624807592118,
+      "garbage": false,
+      "output_head": "<think> Okay, the user is asking for three differences between SQL and NoSQL dat"
+    },
+    {
+      "id": 7,
+      "ok": true,
+      "prompt_short": "How does a neural network learn? Explain like I'm ",
+      "n_chunks": 80,
+      "ttft_s": 2.55137300491333,
+      "elapsed_s": 9.115605592727661,
+      "tps": 8.776158554273476,
+      "garbage": false,
+      "output_head": "<think> Okay, the user wants to know how a neural network learns, but they want "
+    }
+  ],
+  "summary": {
+    "wall_s": 9.12,
+    "total_tokens": 640,
+    "agg_tps": 70.19,
+    "avg_per_client_tps": 8.8,
+    "ok_clients": 8,
+    "garbage_clients": 0
+  },
+  "config_name": "vllm-qwen3-4b-fp16-graph-tp2-IBP2P-final"
+}
