@@ -32,6 +32,12 @@ DMA bounces through host memory — correct, but caps bandwidth below line rate.
 | `reference/ib-p2p-cross-vm.md` | comprehensive host-side doc (VFIO, machine config, stage tests, all 6 blockers) |
 | `../common/vllm-serve-env.sh` | shared runtime env, sourced by both launchers (deployed at `/home/ubuntu/vllm-serve-env.sh`) |
 
+## Variants / sub-tests
+
+| dir | what it adds |
+|-----|--------------|
+| [`27b-eager/`](27b-eager/) | larger model + eager mode: Qwen3.6-27B-VL Quark INT8, `--enforce-eager`. Proves the path is model/mode-agnostic, and characterises eager throughput (~0.29 tok/s) + the bottleneck (eager kernel-dispatch bound on the riscv64 host CPU). Includes `bench.py` (prefill/decode split) and `profile.sh` (GPU busy% + py-spy). |
+
 ## Prerequisites (once per host boot) — see reference doc for detail
 
 ```bash
