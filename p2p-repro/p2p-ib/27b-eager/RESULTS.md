@@ -102,13 +102,19 @@ launch cost on a slow, contended riscv64 host CPU:
 ~1000 launches × ~3 ms riscv64 launch latency ≈ **3 s/token** — matches the
 measured 3.5 s/token.
 
-## Why graph mode would fix it (and why we're in eager anyway)
+## Graph mode fixes it — CONFIRMED (see ../27b-graph)
 
 cudagraph captures the whole ~1000-kernel decode step into **one** replay,
-erasing the per-launch CPU cost — exactly why the 4B/graph path reaches
-~10 tok/s. But cudagraph for the **Gated-DeltaNet hybrid across two VMs** is the
-very thing the project's cross-VM cudagraph-deadlock saga was fighting. **Eager
-is the deadlock-safe fallback; ~0.29 tok/s is the price of that safety.**
+erasing the per-launch CPU cost. **Measured directly** in
+[`../27b-graph/RESULTS.md`](../27b-graph/RESULTS.md): switching only
+`--enforce-eager` → cudagraph `FULL_DECODE_ONLY` took 27B decode from
+**0.288 → 4.49 tok/s (~15.6×)** on the same path — which *confirms* the
+dispatch-bound diagnosis above (the win is purely from removing launch
+overhead, nothing else changed). And the **Gated-DeltaNet hybrid did NOT
+deadlock** across the two VMs — vLLM pads the Mamba page and capture completes
+cleanly. So eager is the deadlock-*safe* mode, but here it was not even
+*needed* for safety; ~0.29 tok/s is simply the cost of eager dispatch, and
+graph is the right choice for usable 27B throughput on this path.
 
 ## Levers (eager-compatible, untested here)
 
