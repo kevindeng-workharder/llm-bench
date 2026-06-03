@@ -7,7 +7,9 @@ bottleneck was kernel-dispatch and (b) checks whether the Gated-DeltaNet hybrid
 hits the cross-VM cudagraph deadlock.
 
 - **Status:** ✅ verified 2026-06-03 — **no deadlock, no OOM**, decode
-  **~4.5 tok/s** (≈ 15× the eager 0.29). See [RESULTS.md](RESULTS.md).
+  **~4.5 tok/s** (≈ 15× the eager 0.29). ⚠️ but later **crashed on sustained
+  generation** (NCCL watchdog timeout) — not yet stable for continuous serving.
+  See [RESULTS.md](RESULTS.md).
 
 ## What changes vs 27b-eager
 
@@ -54,11 +56,17 @@ ssh -p 2224 ubuntu@127.0.0.1 'python3 /home/ubuntu/eager_bench.py'   # decode ~4
   dispatch overhead that bottlenecked eager.
 - If a build *does* deadlock at capture, the mitigation on record is
   `NCCL_LAUNCH_ORDER_IMPLICIT=1` (see project history); it was **not** needed here.
+- **⚠️ Stability:** the verified server later **crashed on a sustained generation**
+  with a fatal NCCL-watchdog timeout (a cross-VM all_reduce stalled past the
+  watchdog on the host-bounce path). See RESULTS.md "Stability caveat". Short
+  requests are fine; long/continuous serving needs the watchdog timeout raised.
 
 ## Recommendation
 
-For usable 27B serving on this cross-VM IB path, **graph mode is the answer**
-(4.5 tok/s usable vs 0.29 eager). Eager remains the deadlock-safe fallback /
-debugging mode. The 4B/graph baseline is ~10 tok/s, so 27B graph carries only
-the ~2.2× model-size penalty over 4B — the model size, not the framework, is
-now the limiter.
+For 27B *throughput* on this cross-VM IB path, **graph mode is the right speed
+answer** (4.5 tok/s vs 0.29 eager; the ~2.2× model-size penalty over 4B/graph's
+~10 tok/s is the only remaining limiter). **But it is not yet stable for
+sustained serving** — see the watchdog-timeout caveat in RESULTS.md; raise the
+NCCL/PG watchdog timeout and re-run a long stability test before relying on it.
+Eager remains the slow-but-steady fallback (and the deadlock-safe / debugging
+mode).

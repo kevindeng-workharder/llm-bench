@@ -6,6 +6,10 @@
 # NO OOM (vLLM pads the Mamba/GDN page so the hybrid is cudagraph-compatible).
 # Ready ~675 s; decode ~4.5 tok/s — ~15x the eager path (0.29), confirming the
 # eager bottleneck was CPU kernel-dispatch. See RESULTS.md.
+# CAVEAT: this server later CRASHED on a sustained generation with a fatal NCCL
+# watchdog timeout (a cross-VM all_reduce stalled past the watchdog on the
+# host-bounce path). Short requests are fine; for continuous serving raise the
+# NCCL/PG watchdog timeout. See RESULTS.md "Stability caveat".
 # If a future build DOES hang at "Capturing CUDA graphs", try NCCL_LAUNCH_ORDER_IMPLICIT=1.
 #
 # DEPLOY TO: VM1 /home/ubuntu/graph27b_vm.sh ; launch via setsid (see README.md).

@@ -52,13 +52,39 @@ all_reduce) cleanly across the two VMs on this build
 (`v0.21.1.dev0+gad7125a43`, RCCL 2.27.7 `96a25b5+`). Mitigation on record if a
 future build regresses: `NCCL_LAUNCH_ORDER_IMPLICIT=1` (not needed here).
 
-## Note
+## ⚠️ Stability caveat — fatal NCCL watchdog timeout on sustained generation
 
-One bench run (the 3rd) stalled mid-stream during measurement; the two clean
-runs agree at 4.48–4.50 tok/s and the engine-side `Avg generation throughput`
-corroborates ~2.6–3.2 tok/s windowed (incl. idle gaps). The stall looked like a
-transient in the double-ssh streaming client rather than a server problem; worth
-a longer N-run confirmation if graph mode is taken toward production.
+The 4.5 tok/s above (2 clean runs) is real, but the server did **not** survive
+extended use. During a 3rd, longer streaming request the EngineCore died with a
+fatal **torch.distributed NCCL watchdog timeout**:
+
+```
+c10d::ProcessGroupNCCL::WorkNCCL::checkTimeout (.../ProcessGroupNCCL.cpp:692)
+  -> multiproc_executor: "Worker proc VllmWorker-0 died unexpectedly"
+  -> RuntimeError: cancelled  ->  EngineDeadError
+VM1 EngineCore died 12:34:35;  VM2 follower's own watchdog fired ~10 min later 12:44:47.
+```
+
+i.e. a cross-VM collective (all_reduce) **stalled past the NCCL watchdog
+timeout** on the GDR-disabled host-bounce path, and the watchdog killed the
+whole process group (fatal by design). The "3rd run stall" was therefore a
+**server-side hang, not a client/ssh transient** (an earlier draft of this note
+guessed wrong).
+
+**Honest takeaway:** graph mode is the right *speed* answer (4.5 tok/s, 15×
+eager) but on this host-bounce path it is **not yet stable for sustained
+serving** — an intermittent collective stall trips the fatal watchdog. Before
+production:
+- raise the collective watchdog timeout so a slow host-bounce all_reduce isn't
+  declared dead (torch PG timeout / `NCCL_TIMEOUT`; note our env already sets
+  `VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200` but the **NCCL watchdog** is a
+  separate timer and was not raised);
+- and/or attack the stall source (host-CPU contention on the bounce path, GDR
+  absence). The 4B/graph baseline did not exhibit this in its verified run, so
+  27B's longer per-step collective likely aggravates it.
+
+Needs a longer multi-request stability run (with the watchdog timeout raised)
+before graph 27B can be called production-ready here.
 
 ## How measured
 
