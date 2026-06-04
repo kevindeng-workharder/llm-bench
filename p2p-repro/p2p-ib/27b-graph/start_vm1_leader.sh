@@ -1,18 +1,10 @@
 #!/bin/bash
-# p2p-ib 27B GRAPH test — LEADER (node 0, VM1)
-# Qwen3.6-27B-VL Quark W8A8 INT8, cudagraph FULL_DECODE_ONLY (vs eager).
-#
-# VERIFIED WORKING 2026-06-03: capture completed with NO cross-VM deadlock and
-# NO OOM (vLLM pads the Mamba/GDN page so the hybrid is cudagraph-compatible).
-# Ready ~675 s; decode ~4.5 tok/s — ~15x the eager path (0.29), confirming the
-# eager bottleneck was CPU kernel-dispatch. See RESULTS.md.
-# CAVEAT: this server later CRASHED on a sustained generation with a fatal NCCL
-# watchdog timeout (a cross-VM all_reduce stalled past the watchdog on the
-# host-bounce path). Short requests are fine; for continuous serving raise the
-# NCCL/PG watchdog timeout. See RESULTS.md "Stability caveat".
-# If a future build DOES hang at "Capturing CUDA graphs", try NCCL_LAUNCH_ORDER_IMPLICIT=1.
-#
-# DEPLOY TO: VM1 /home/ubuntu/graph27b_vm.sh ; launch via setsid (see README.md).
+# p2p-ib 27B GRAPH + FIX — LEADER (node 0, VM1)
+# Root cause of the sustained-gen hang: vLLM async-scheduling's
+# async_copy_ready_event.synchronize() never returns under cudagraph (the
+# non-blocking D2H sampled-token copy's event isn't signalled on replay).
+# Fix: --no-async-scheduling (keeps cudagraph speed, uses the synchronous
+# Scheduler / no async copy event). Watchdog left at default (no ASYNC=0 hack).
 set -eu
 source /home/ubuntu/vllm-serve-env.sh
 unset NCCL_TOPO_FILE
@@ -48,6 +40,7 @@ exec /data/vllm0.21-pt2.11/bin/python -m vllm.entrypoints.openai.api_server \
     --distributed-executor-backend mp \
     --trust-remote-code \
     --no-enable-prefix-caching \
+    --no-async-scheduling \
     --mm-processor-kwargs '{"max_pixels":451584,"min_pixels":3136}' \
     --disable-custom-all-reduce \
     --compilation-config '{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4],"max_cudagraph_capture_size":4,"cudagraph_num_of_warmups":0}' \

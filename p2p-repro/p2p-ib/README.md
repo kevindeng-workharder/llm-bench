@@ -37,7 +37,7 @@ DMA bounces through host memory — correct, but caps bandwidth below line rate.
 | dir | what it adds |
 |-----|--------------|
 | [`27b-eager/`](27b-eager/) | larger model + eager mode: Qwen3.6-27B-VL Quark INT8, `--enforce-eager`. Proves the path is model/mode-agnostic, and characterises eager throughput (~0.29 tok/s) + the bottleneck (eager kernel-dispatch bound on the riscv64 host CPU). Includes `bench.py` (prefill/decode split) and `profile.sh` (GPU busy% + py-spy). |
-| [`27b-graph/`](27b-graph/) | same 27B model in cudagraph `FULL_DECODE_ONLY`. **~4.5 tok/s (≈15× eager)** — confirms the eager bottleneck was dispatch. Gated-DeltaNet hybrid captures across two VMs with **no deadlock / no OOM**. ⚠️ but later **crashed on sustained generation** (fatal NCCL watchdog timeout on the host-bounce path) — fast, not yet stable for continuous serving. |
+| [`27b-graph/`](27b-graph/) | same 27B model in cudagraph `FULL_DECODE_ONLY` **+ `--no-async-scheduling`**. cudagraph confirms the eager bottleneck was dispatch (~15× faster raw). Default graph **hangs** — root-caused (py-spy) to vLLM async-scheduling's sampled-token copy CUDA event never signalling under cudagraph (not a collective deadlock, not the watchdog). With `--no-async-scheduling`: **stable** — ~3.0 tok/s single-stream, **~11 tok/s aggregate at N=4** (136 reqs, 0 hang / 20-min soak). |
 
 ## Prerequisites (once per host boot) — see reference doc for detail
 

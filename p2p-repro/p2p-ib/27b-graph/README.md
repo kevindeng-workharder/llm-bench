@@ -1,25 +1,31 @@
 # p2p-ib · 27B Quark-INT8 · graph-mode (cudagraph) test
 
-The graph-mode counterpart to [`../27b-eager`](../27b-eager). Same model and
-cross-VM RoCE path, but `--enforce-eager` is replaced with **cudagraph
-`FULL_DECODE_ONLY`**. This is the test that both (a) confirms the eager
-bottleneck was kernel-dispatch and (b) checks whether the Gated-DeltaNet hybrid
-hits the cross-VM cudagraph deadlock.
+The graph-mode counterpart to [`../27b-eager`](../27b-eager): same model and
+cross-VM RoCE path, `--enforce-eager` replaced with cudagraph
+`FULL_DECODE_ONLY` **plus `--no-async-scheduling`** (required — see below).
 
-- **Status:** ✅ verified 2026-06-03 — **no deadlock, no OOM**, decode
-  **~4.5 tok/s** (≈ 15× the eager 0.29). ⚠️ but later **crashed on sustained
-  generation** (NCCL watchdog timeout) — not yet stable for continuous serving.
-  See [RESULTS.md](RESULTS.md).
+- **Status:** ✅ verified 2026-06-04 — stable, **~3.0 tok/s** single-stream /
+  **~11 tok/s aggregate at N=4** (136 reqs, 0 hang over a 20-min soak). See
+  [RESULTS.md](RESULTS.md).
+- **Why this exists:** (a) cudagraph confirms the eager bottleneck was CPU
+  kernel-dispatch (~15× faster raw); (b) it surfaces a real vLLM bug —
+  async-scheduling hangs under cudagraph — and its fix.
 
-## What changes vs 27b-eager
-
-Only the execution mode (everything else identical — model, quant, TP, IB env,
-leader + headless follower):
+## The two changes vs 27b-eager
 
 ```
 -    --enforce-eager
++    --no-async-scheduling
 +    --compilation-config '{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4],"max_cudagraph_capture_size":4,"cudagraph_num_of_warmups":0}'
 ```
+
+`--no-async-scheduling` is **not optional** here. Without it, plain graph hangs
+on the first sustained request: vLLM async-scheduling copies each step's sampled
+tokens D2H asynchronously and waits on a CUDA event (`async_copy_ready_event`)
+that **never signals under cudagraph** on this ROCm/riscv64 stack →
+`.synchronize()` spins forever, both GPUs pegged at 100%. (async scheduling is
+auto-enabled for the `mp` backend, so you must explicitly turn it off.) Full
+diagnosis + the py-spy stacks are in RESULTS.md.
 
 ## Files
 
@@ -27,8 +33,8 @@ leader + headless follower):
 |------|------|
 | `start_vm1_leader.sh` | LEADER (node 0) → deploy to VM1 `/home/ubuntu/graph27b_vm.sh` |
 | `start_vm2_follower_headless.sh` | FOLLOWER (node 1, `vllm serve --headless`) → VM2 `/home/ubuntu/graph27b_vm.sh` |
-| `RESULTS.md` | verified run + the eager↔graph comparison |
-| bench / profile | reuse [`../27b-eager/bench.py`](../27b-eager/bench.py) and [`../27b-eager/profile.sh`](../27b-eager/profile.sh) — model/mode-agnostic |
+| `RESULTS.md` | root-cause (async-scheduling × cudagraph) + N=1/N=4 results |
+| bench / profile | reuse [`../27b-eager/bench.py`](../27b-eager/bench.py) and [`../27b-eager/profile.sh`](../27b-eager/profile.sh) |
 
 ## Run
 
@@ -41,32 +47,24 @@ scp start_vm2_follower_headless.sh p2p-host:/tmp/ && ssh p2p-host 'scp -P 2225 /
 ssh -p 2224 ubuntu@127.0.0.1 'cd /home/ubuntu && setsid bash graph27b_vm.sh </dev/null >/tmp/vllm_vm1.log 2>&1'
 ssh -p 2225 ubuntu@127.0.0.1 'cd /home/ubuntu && setsid bash graph27b_vm.sh </dev/null >/tmp/vllm_vm2.log 2>&1'
 
-# bench (reuse the eager test's bench)
-ssh -p 2224 ubuntu@127.0.0.1 'python3 /home/ubuntu/eager_bench.py'   # decode ~4.5 tok/s
+# single-stream bench (reuse the eager test's bench)
+ssh -p 2224 ubuntu@127.0.0.1 'python3 /home/ubuntu/eager_bench.py'     # ~3.0 tok/s
+# concurrency is where it shines — N=4 ThreadPoolExecutor → ~11 tok/s aggregate
 ```
 
 ## What to expect
 
-- **Startup ~675 s.** Extra phase vs eager: `Capturing CUDA graphs` (the
-  deadlock-risk window). Watch for `Padding mamba page` just before — that is
-  vLLM making the Gated-DeltaNet state cudagraph-compatible. No OOM at
-  gpu-mem-util 0.85 with capture sizes [1,2,4].
-- **Decode ~4.5 tok/s**, TTFT ~5.6 s. ~15× the eager path — cudagraph collapses
-  the ~1000 per-token kernel launches into one replay, erasing the riscv64
-  dispatch overhead that bottlenecked eager.
-- If a build *does* deadlock at capture, the mitigation on record is
-  `NCCL_LAUNCH_ORDER_IMPLICIT=1` (see project history); it was **not** needed here.
-- **⚠️ Stability:** the verified server later **crashed on a sustained generation**
-  with a fatal NCCL-watchdog timeout (a cross-VM all_reduce stalled past the
-  watchdog on the host-bounce path). See RESULTS.md "Stability caveat". Short
-  requests are fine; long/continuous serving needs the watchdog timeout raised.
+- **Startup ~11–30 min**, slow *and variable*. The long pole is the Qwen3-VL
+  multimodal processor load (`from_pretrained` → recursive `deepcopy` of the HF
+  config, pathologically slow on riscv64). No `Capturing CUDA graphs` deadlock,
+  no OOM. Just be patient / cache the processor if startup latency matters.
+- **Decode:** ~3.0 tok/s single-stream, **~11 tok/s aggregate at N=4** — stable
+  (136 requests, 0 hang in a 20-min N=4 soak). Without `--no-async-scheduling`
+  it would hang on the first sustained request.
 
 ## Recommendation
 
-For 27B *throughput* on this cross-VM IB path, **graph mode is the right speed
-answer** (4.5 tok/s vs 0.29 eager; the ~2.2× model-size penalty over 4B/graph's
-~10 tok/s is the only remaining limiter). **But it is not yet stable for
-sustained serving** — see the watchdog-timeout caveat in RESULTS.md; raise the
-NCCL/PG watchdog timeout and re-run a long stability test before relying on it.
-Eager remains the slow-but-steady fallback (and the deadlock-safe / debugging
-mode).
+**graph + `--no-async-scheduling`, served with concurrency** is the usable 27B
+config on this path (~11 tok/s aggregate at N=4, ~10× eager, stable). Eager is
+the slow-but-simple fallback. Proper upstream fix = make the async-scheduling
+copy event work under cudagraph on ROCm; until then, keep async scheduling off.

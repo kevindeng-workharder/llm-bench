@@ -1,6 +1,6 @@
 #!/bin/bash
-# p2p-ib 27B GRAPH test — FOLLOWER (node 1, VM2) — HEADLESS
-# Engine args (incl. compilation-config) MUST match the leader.
+# p2p-ib 27B GRAPH + FIX — FOLLOWER (node 1, VM2) — HEADLESS
+# --no-async-scheduling (see leader); engine args must match leader.
 set -eu
 source /home/ubuntu/vllm-serve-env.sh
 unset NCCL_TOPO_FILE
@@ -35,6 +35,7 @@ exec /data/vllm0.21-pt2.11/bin/vllm serve /data/Qwen3.6-27B-Quark-W8A8-INT8 \
     --distributed-executor-backend mp \
     --trust-remote-code \
     --no-enable-prefix-caching \
+    --no-async-scheduling \
     --mm-processor-kwargs '{"max_pixels":451584,"min_pixels":3136}' \
     --disable-custom-all-reduce \
     --compilation-config '{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4],"max_cudagraph_capture_size":4,"cudagraph_num_of_warmups":0}' \

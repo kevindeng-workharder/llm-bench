@@ -102,19 +102,20 @@ launch cost on a slow, contended riscv64 host CPU:
 ~1000 launches × ~3 ms riscv64 launch latency ≈ **3 s/token** — matches the
 measured 3.5 s/token.
 
-## Graph mode fixes it — CONFIRMED (see ../27b-graph)
+## Graph mode confirms the diagnosis (see ../27b-graph)
 
 cudagraph captures the whole ~1000-kernel decode step into **one** replay,
 erasing the per-launch CPU cost. **Measured directly** in
-[`../27b-graph/RESULTS.md`](../27b-graph/RESULTS.md): switching only
-`--enforce-eager` → cudagraph `FULL_DECODE_ONLY` took 27B decode from
-**0.288 → 4.49 tok/s (~15.6×)** on the same path — which *confirms* the
-dispatch-bound diagnosis above (the win is purely from removing launch
-overhead, nothing else changed). And the **Gated-DeltaNet hybrid did NOT
-deadlock** across the two VMs — vLLM pads the Mamba page and capture completes
-cleanly. So eager is the deadlock-*safe* mode, but here it was not even
-*needed* for safety; ~0.29 tok/s is simply the cost of eager dispatch, and
-graph is the right choice for usable 27B throughput on this path.
+[`../27b-graph/RESULTS.md`](../27b-graph/RESULTS.md): switching
+`--enforce-eager` → cudagraph took 27B decode from **0.288 → ~4.5 tok/s raw
+(~15×)**, which *confirms* the dispatch-bound diagnosis above (nothing else
+changed). **Why eager never hangs but graph does:** plain graph hangs on
+sustained generation — root-caused (py-spy) to vLLM **async-scheduling's**
+sampled-token copy CUDA event never signalling under cudagraph; eager has no
+cudagraph so the event works. Fix = `--no-async-scheduling`, which gives a
+**stable** ~3.0 tok/s single-stream / **~11 tok/s aggregate at N=4** (136 reqs,
+0 hang / 20-min soak). So: eager is slow-but-simple; the usable fast path is
+**graph + `--no-async-scheduling`, served concurrently**.
 
 ## Levers (eager-compatible, untested here)
 

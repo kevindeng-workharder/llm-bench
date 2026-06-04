@@ -1,93 +1,119 @@
-# p2p-ib · 27B INT8 graph (cudagraph) — verified run (2026-06-03)
+# p2p-ib · 27B INT8 graph (cudagraph) — verified run + root-cause (2026-06-03/04)
 
 Same model/path/setup as [`../27b-eager/RESULTS.md`](../27b-eager/RESULTS.md),
 with `--enforce-eager` replaced by cudagraph `FULL_DECODE_ONLY`
-(`cudagraph_capture_sizes=[1,2,4]`).
+(`cudagraph_capture_sizes=[1,2,4]`) **plus `--no-async-scheduling`** (the fix
+explained below).
 
-## Outcome
+## TL;DR
 
-| | result |
-|---|---|
-| deploy / serve | ✅ correct output |
-| **cross-VM cudagraph deadlock** | **none** — capture completed cleanly |
-| OOM | none (gpu-mem-util 0.85, capture sizes [1,2,4]) |
-| startup to ready | ≈ **675 s** |
-| **decode throughput** | **~4.5 tok/s** (run1 4.498, run2 4.476; very consistent) |
-| TTFT (prefill) | ≈ 5.6 s |
+cudagraph makes 27B decode **~15× faster than eager** (0.29 → ~4.5 tok/s raw),
+confirming the eager bottleneck was CPU kernel-dispatch. But **plain graph hangs
+on sustained generation** — and the cause is *not* a cudagraph collective
+deadlock and *not* the NCCL watchdog (both were wrong early guesses). The real
+cause is **vLLM async-scheduling's sampled-token copy CUDA event never
+signalling under cudagraph**. Disabling it (`--no-async-scheduling`) gives a
+**stable** server:
 
-## The headline: eager bottleneck confirmed
-
-| 27B INT8, cross-VM IB | decode tok/s | vs eager |
+| 27B INT8, cross-VM IB | tok/s | stable? |
 |---|---|---|
-| `--enforce-eager` | 0.288 | 1× |
-| **cudagraph FULL_DECODE_ONLY** | **4.49** | **~15.6×** |
+| eager, N=1 | 0.29 | ✅ stable, slow |
+| graph + async-scheduling (default), N=1 | ~4.5 | ❌ **hangs** (req fails to complete) |
+| **graph + `--no-async-scheduling`, N=1** | **~3.0** | ✅ stable |
+| **graph + `--no-async-scheduling`, N=4 concurrent** | **~11 (aggregate)** | ✅ **136 reqs, 0 hang over 20 min** |
 
-cudagraph collapses the ~1000 per-token kernel launches (Triton INT8 quant+mm,
-Gated-DeltaNet scan, per-layer all_reduce) into a single replay, erasing the
-riscv64 CPU kernel-dispatch overhead that the eager profiling identified as the
-bottleneck. The 15× jump **confirms that diagnosis**: eager was dispatch-bound,
-not GPU-compute- or IB-bound.
+`--no-async-scheduling` costs some single-stream throughput (4.5→3.0; async
+scheduling overlaps GPU gaps) but **concurrency more than recovers it**: N=4 runs
+~11 tok/s aggregate and is rock-solid.
 
-Two penalties, now both quantified on this path:
+## Root cause (located with py-spy + source)
 
-| comparison | factor | cause |
-|---|---|---|
-| 27B eager → 27B graph | **15×** | eager per-kernel dispatch on slow riscv64 CPU |
-| 4B graph → 27B graph (10 → 4.5) | **2.2×** | model size (4B → 27B) |
-
-## Gated-DeltaNet hybrid + cross-VM cudagraph: no deadlock
-
-The earlier project saga (single-VM multi-graph RCCL deadlock, tasks #10–17)
-did **not** reproduce here. Startup log around the capture window:
+Plain graph (async scheduling on) hangs on the **first** sustained request:
+`Running: 1`, `generation throughput 0.0 tok/s`, **both GPUs pegged at 100%**.
+py-spy of both workers' MainThread, at the hang:
 
 ```
-[450s] interface.py:669  Padding mamba page          ← GDN state made cudagraph-safe
-[465s] entered "Capturing CUDA graphs" phase
-[675s] Application startup complete                  ← captured, no hang, no OOM
+InputBatch.update_async_output_token_ids (gpu_input_batch.py:1042)
+  ← GPUModelRunner._sample (gpu_model_runner.py:3406)
+  ← sample_tokens → Worker.sample_tokens → worker_busy_loop
+WorkerAsyncOutputCopy thread (active): AsyncGPUModelRunnerOutput.get_output (gpu_model_runner.py:274)
+EngineCore (waiting): step_with_batch_queue → collective_rpc result
 ```
 
-vLLM pads the Mamba/Gated-DeltaNet page so the hybrid is cudagraph-compatible,
-and `FULL_DECODE_ONLY` captures the decode step (incl. the per-layer
-all_reduce) cleanly across the two VMs on this build
-(`v0.21.1.dev0+gad7125a43`, RCCL 2.27.7 `96a25b5+`). Mitigation on record if a
-future build regresses: `NCCL_LAUNCH_ORDER_IMPLICIT=1` (not needed here).
+Both are stuck **after** the forward, in the **sampling / async-output** path —
+**not** in `all_reduce`, not in a collective. The blocking call (source):
 
-## ⚠️ Stability caveat — fatal NCCL watchdog timeout on sustained generation
-
-The 4.5 tok/s above (2 clean runs) is real, but the server did **not** survive
-extended use. During a 3rd, longer streaming request the EngineCore died with a
-fatal **torch.distributed NCCL watchdog timeout**:
-
-```
-c10d::ProcessGroupNCCL::WorkNCCL::checkTimeout (.../ProcessGroupNCCL.cpp:692)
-  -> multiproc_executor: "Worker proc VllmWorker-0 died unexpectedly"
-  -> RuntimeError: cancelled  ->  EngineDeadError
-VM1 EngineCore died 12:34:35;  VM2 follower's own watchdog fired ~10 min later 12:44:47.
+```python
+# AsyncGPUModelRunnerOutput: sampled ids copied D2H non-blocking, event recorded
+self.sampled_token_ids_cpu = self._sampled_token_ids.to("cpu", non_blocking=True)
+self.async_copy_ready_event.record()
+# get_output() / update_async_output_token_ids():
+self.async_copy_ready_event.synchronize()   # <-- never returns under cudagraph
 ```
 
-i.e. a cross-VM collective (all_reduce) **stalled past the NCCL watchdog
-timeout** on the GDR-disabled host-bounce path, and the watchdog killed the
-whole process group (fatal by design). The "3rd run stall" was therefore a
-**server-side hang, not a client/ssh transient** (an earlier draft of this note
-guessed wrong).
+vLLM **async scheduling** pipelines steps: step N's sampled tokens are copied D2H
+asynchronously and fed into step N+1, gated by `async_copy_ready_event`. Under
+cudagraph that event is never signalled on replay (the ROCm/riscv64 cudagraph +
+event interaction is broken), so `.synchronize()` spins forever — both GPUs at
+100%, the engine waits on the workers, the request hangs.
 
-**Honest takeaway:** graph mode is the right *speed* answer (4.5 tok/s, 15×
-eager) but on this host-bounce path it is **not yet stable for sustained
-serving** — an intermittent collective stall trips the fatal watchdog. Before
-production:
-- raise the collective watchdog timeout so a slow host-bounce all_reduce isn't
-  declared dead (torch PG timeout / `NCCL_TIMEOUT`; note our env already sets
-  `VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200` but the **NCCL watchdog** is a
-  separate timer and was not raised);
-- and/or attack the stall source (host-CPU contention on the bounce path, GDR
-  absence). The 4B/graph baseline did not exhibit this in its verified run, so
-  27B's longer per-step collective likely aggravates it.
+**Why eager never hung:** eager has no cudagraph, so the event records/signals
+normally. That is the real eager-vs-graph difference (not "graph is faster but
+deadlocks").
 
-Needs a longer multi-request stability run (with the watchdog timeout raised)
-before graph 27B can be called production-ready here.
+`async_scheduling` defaults to `None` and is **auto-enabled** for the `mp`
+distributed-executor backend (`vllm/config/vllm.py`: `else: async_scheduling =
+True`), so it is on unless you pass `--no-async-scheduling`
+(`BooleanOptionalAction`, `arg_utils.py`).
+
+### Things that were RULED OUT (early wrong guesses)
+
+- **Not a cross-VM cudagraph collective deadlock** (the #10–17 saga). The
+  workers are idle/in-sampling, not in `all_reduce`; and N=4 concurrency runs
+  136 requests with **zero** hangs (below). The saga does not reproduce here.
+- **Not the NCCL watchdog.** Plain graph's "crash on sustained gen" was the
+  torch NCCL watchdog *catching* the above hang and tearing down (recover-by-
+  crash). Disabling the watchdog (`TORCH_NCCL_ASYNC_ERROR_HANDLING=0`) only
+  converted the crash into a permanent hang — it is **not** the fix and is not
+  used here.
+
+## Stability — N=4 concurrent soak (the saga's worry, settled)
+
+20-minute continuous N=4 concurrency on the fixed server:
+
+```
+34 rounds × 4 concurrent = 136 requests, 0 hang, 0 fail, 1201 s
+per-round aggregate steady at 10.3–11.4 tok/s (overall 10.9 tok/s)
+>>>>> N=4 SOAK SURVIVED ✅ <<<<<
+```
+
+So graph + `--no-async-scheduling` + `--disable-custom-all-reduce` is stable
+under concurrency, not just single-stream.
+
+## Also confirmed
+
+- **No cross-VM cudagraph deadlock at capture, no OOM.** The Gated-DeltaNet
+  hybrid captures cleanly across two VMs (`Padding mamba page`); `FULL_DECODE_ONLY`
+  with sizes [1,2,4] fits at gpu-mem-util 0.85.
+- **Startup is slow and variable** (~11–30 min). The long pole is the Qwen3-VL
+  multimodal processor load — `from_pretrained` does a recursive `deepcopy` of
+  the HF config that is pathologically slow on the riscv64 CPU (py-spy caught the
+  APIServer pinned in it). Not a hang; just slow. Worth caching/short-circuiting
+  if startup latency matters.
+
+## Recommendation
+
+For 27B on this cross-VM IB path: **graph + `--no-async-scheduling`**, served
+with concurrency (N≈4 → ~11 tok/s aggregate, stable). It is ~10× the eager
+single-stream path and, unlike default graph, does not hang. Eager remains the
+slow-but-simple fallback. The proper upstream fix would be making the
+async-scheduling copy event work under cudagraph on ROCm — until then,
+`--no-async-scheduling` is the practical answer.
 
 ## How measured
 
-Reused [`../27b-eager/bench.py`](../27b-eager/bench.py) (streaming, prefill/decode
-split). Launchers in this directory differ from eager only in the
-compilation-config (cudagraph vs `--enforce-eager`).
+`../27b-eager/bench.py` (single-stream) and an N=4 `ThreadPoolExecutor` soak
+(136 reqs / 20 min). py-spy (Python stacks; `--native` unsupported on riscv64)
+located the `async_copy_ready_event.synchronize()` hang. Software: vLLM
+`v0.21.1.dev0+gad7125a43`, RCCL 2.27.7 `96a25b5+`, ROCm 7.2.3, PyTorch 2.11,
+kernel `6.19.5-p2p`.
