@@ -18,8 +18,9 @@ Host p2p-host (10.103.11.199, AMD Turin)
 ```
 
 Both GPUs and both NIC ports are bound to `vfio-pci` on the host before either
-QEMU launches. GDR (GPUDirect RDMA) is **not** available here, so all GPU↔NIC
-DMA bounces through host memory — correct, but caps bandwidth below line rate.
+QEMU launches. By default GPU↔NIC DMA bounces through host memory — correct, but caps
+bandwidth below line rate. The [`27b-gdr/`](27b-gdr/) variant enables true GDR
+(NIC↔GPU direct VRAM DMA); see it for the two-bug root cause and the fix.
 
 ## Files in this directory
 
@@ -38,6 +39,7 @@ DMA bounces through host memory — correct, but caps bandwidth below line rate.
 |-----|--------------|
 | [`27b-eager/`](27b-eager/) | larger model + eager mode: Qwen3.6-27B-VL Quark INT8, `--enforce-eager`. Proves the path is model/mode-agnostic, and characterises eager throughput (~0.29 tok/s) + the bottleneck (eager kernel-dispatch bound on the riscv64 host CPU). Includes `bench.py` (prefill/decode split) and `profile.sh` (GPU busy% + py-spy). |
 | [`27b-graph/`](27b-graph/) | same 27B model in cudagraph `FULL_DECODE_ONLY` **+ `--no-async-scheduling`**. cudagraph confirms the eager bottleneck was dispatch (~15× faster raw). Default graph **hangs** — root-caused (py-spy) to vLLM async-scheduling's sampled-token copy CUDA event never signalling under cudagraph (not a collective deadlock, not the watchdog). With `--no-async-scheduling`: **stable** — ~3.0 tok/s single-stream, **~11 tok/s aggregate at N=4** (136 reqs, 0 hang / 20-min soak). |
+| [`27b-gdr/`](27b-gdr/) | **GDR (GPUDirect RDMA)** variant of `27b-graph`: NIC↔GPU **direct** VRAM DMA, no host bounce — `use ring PXN 0 GDR 1`. Needs the unified kernel `Image-6.19.5-p2p-all` (a 1-line `cpu_supports_p2pdma` hack) **and** `RCCL_FORCE_ENABLE_DMABUF=1` (works around RCCL reading gzipped `/proc/config.gz` as plaintext). ~5.4–6.2 tok/s single-stream. Two independent bugs, both software — not the "topology" the HANDOFF blamed. |
 
 ## Prerequisites (once per host boot) — see reference doc for detail
 
@@ -147,5 +149,7 @@ ssh -p 2225 ubuntu@127.0.0.1 'pkill -9 -f "vllm|VLLM::|EngineCore" ; rm -f /tmp/
 
 ## Known limits
 
-GDR not tested (no peer-bridge across PCIe roots → host-bounce). TP=2 + PP=1
+GDR is **achieved** in [`27b-gdr/`](27b-gdr/) (`GDR 1`; needs the unified kernel
++ `RCCL_FORCE_ENABLE_DMABUF=1`) — the host-bounce was a missing kernel patch plus
+an RCCL config-parsing bug, **not** a PCIe-topology limit. TP=2 + PP=1
 only. `mp` executor only (no Ray). See reference doc "What it does not test".
