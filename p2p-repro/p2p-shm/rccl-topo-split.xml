@@ -1,0 +1,16 @@
+<system version="2">
+  <cpu host_hash="0xabc" numaid="0" affinity="ffff" arch="x86_64" vendor="GenuineIntel" familyid="6" modelid="71">
+    <pci busid="0000:00:00.0" class="0x060400" vendor="0x1022" device="0x14d8" subsystem_vendor="0x1022" subsystem_device="0x14d8" link_speed="16.0 GT/s PCIe" link_width="16">
+      <pci busid="0002:01:00.0" class="0x030000" vendor="0x1002" device="0x744c" subsystem_vendor="0x1002" subsystem_device="0x0e37" link_speed="16.0 GT/s PCIe" link_width="16">
+        <gpu dev="0" sm="90" rank="0" gdr="0"/>
+      </pci>
+    </pci>
+  </cpu>
+  <cpu host_hash="0xabc" numaid="1" affinity="ffff0000" arch="x86_64" vendor="GenuineIntel" familyid="6" modelid="71">
+    <pci busid="0001:00:00.0" class="0x060400" vendor="0x1022" device="0x14d8" subsystem_vendor="0x1022" subsystem_device="0x14d8" link_speed="16.0 GT/s PCIe" link_width="16">
+      <pci busid="0003:01:00.0" class="0x030000" vendor="0x1002" device="0x744c" subsystem_vendor="0x1002" subsystem_device="0x0e37" link_speed="16.0 GT/s PCIe" link_width="16">
+        <gpu dev="1" sm="90" rank="1" gdr="0"/>
+      </pci>
+    </pci>
+  </cpu>
+</system>

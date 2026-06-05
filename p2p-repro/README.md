@@ -14,7 +14,7 @@ RCCL 2.27.7 (`96a25b5+`) + vLLM `v0.21.1.dev0+gad7125a43`, kernel `6.19.5-p2p`.
 |----------|-----|--------------|----------------|-------------|--------|
 | [**p2p-ib**](p2p-ib/) | 2 guests | NIC ↔ NIC over RoCE (host-bounce) | `NET=IB` | leader `api_server` + follower `vllm serve --headless` | ✅ **verified 2026-06-03** |
 | [**p2p-direct**](p2p-direct/) | 1 guest | Infinity Fabric / PCIe P2P, direct | `P2P/IPC` | single `api_server` | ✅ **verified 2026-06-05** (~16 tok/s) |
-| [**p2p-shm**](p2p-shm/) | 1 guest | pinned host shared memory | `SHM/direct` (split topo XML) | single `api_server` | ⬜ placeholder |
+| [**p2p-shm**](p2p-shm/) | 1 guest | pinned host shared memory | `SHM/direct` (split topo XML) | single `api_server` | ✅ **verified 2026-06-05** (~15 tok/s) |
 
 **How to choose:** p2p-direct is fastest and simplest (one guest, no NIC) —
 use it unless you specifically need to exercise something else. p2p-shm forces
@@ -44,7 +44,8 @@ p2p-repro/
 │   └── reference/ib-p2p-cross-vm.md   comprehensive host-side doc (VFIO, stages, 6 blockers)
 ├── p2p-direct/                ★ archived 2026-06-05 (P2P/IPC, ~16 tok/s — beats SHM)
 │   ├── README.md  RESULTS.md  start_dual_gpu.sh  rccl-topo.xml  bench.py
-└── p2p-shm/README.md          placeholder (single-VM host SHM, split topo)
+└── p2p-shm/                   ★ archived 2026-06-05 (SHM/direct, ~15 tok/s)
+    ├── README.md  RESULTS.md  start_shm.sh  rccl-topo-split.xml  bench.py
 ```
 
 ## Shared prerequisites (all scenarios)
@@ -70,5 +71,6 @@ p2p-repro/
 
 p2p-ib was brought up and benchmarked end-to-end on 2026-06-03 (`p2p-ib/RESULTS.md`),
 with GDR added 2026-06-05 (`p2p-ib/27b-gdr/`). p2p-direct was verified and archived
-2026-06-05 (`p2p-direct/RESULTS.md` — ~16 tok/s single-stream, beating SHM). p2p-shm
-remains scaffolded from `start_shm_48k.sh`, pending the same verify-and-archive pass.
+2026-06-05 (`p2p-direct/RESULTS.md` — ~16 tok/s single-stream, beating SHM), and
+p2p-shm verified the same day (`p2p-shm/RESULTS.md` — ~15 tok/s via `SHM/direct`).
+All three scenarios are now archived and benchmarked.
