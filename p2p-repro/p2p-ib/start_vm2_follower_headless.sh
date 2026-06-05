@@ -33,6 +33,10 @@
 # ============================================================================
 set -eu
 source /home/ubuntu/vllm-serve-env.sh
+# riscv64: use ROCm clang for Triton's C launcher compile. Stock gcc (cc1)
+# heap-corrupts (free(): invalid size -> SIGABRT) building scaled_mm_kernel's
+# __triton_launcher.c in the loaded-model worker. Triton's build.py honors $CC.
+export CC=/opt/rocm/llvm/bin/clang
 
 # --- overrides for cross-VM IB (mirror the leader, VM2's iface/IP) ---
 unset NCCL_TOPO_FILE

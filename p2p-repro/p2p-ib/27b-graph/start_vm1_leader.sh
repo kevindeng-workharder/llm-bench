@@ -7,6 +7,10 @@
 # Scheduler / no async copy event). Watchdog left at default (no ASYNC=0 hack).
 set -eu
 source /home/ubuntu/vllm-serve-env.sh
+# riscv64: use ROCm clang for Triton's C launcher compile. Stock gcc (cc1)
+# heap-corrupts (free(): invalid size -> SIGABRT) building scaled_mm_kernel's
+# __triton_launcher.c in the loaded-model worker. Triton's build.py honors $CC.
+export CC=/opt/rocm/llvm/bin/clang
 unset NCCL_TOPO_FILE
 unset NCCL_P2P_DISABLE NCCL_SHM_DISABLE
 export NCCL_IB_DISABLE=0

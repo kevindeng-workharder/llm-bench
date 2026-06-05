@@ -15,6 +15,10 @@
 # DEPLOYED LOCATION on each guest: /home/ubuntu/vllm-serve-env.sh
 # This is a verbatim copy kept under version control. If you change the guest
 # copy, update this one too (and vice-versa).
+# riscv64 default: ROCm clang for Triton launcher compile (stock gcc cc1
+# heap-corrupts -> SIGABRT on scaled_mm_kernel's __triton_launcher.c).
+export CC=/opt/rocm/llvm/bin/clang
+
 ROCM_PREFIX="${ROCM_PREFIX:-/opt/rocm-riscv-7.2.3}"
 VENV_PREFIX="${VENV_PREFIX:-/data/vllm0.21-pt2.11}"
 PYTHON_MINOR="${PYTHON_MINOR:-3.13}"
