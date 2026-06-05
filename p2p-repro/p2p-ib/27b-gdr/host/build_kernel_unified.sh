@@ -4,9 +4,13 @@
 # Source     = patched qemu_soc tree (cpu_supports_p2pdma + amdgpu is_large_bar + kfd hacks).
 # Toolchain  = gcc-15 (aligned with qemu_soc/kernel/build_kernel.sh).
 set -e
-KSRC=/home/ubuntu/qemu_soc/kernel/linux-6.19.5
-PATCH=/home/ubuntu/p2p_archive/patches/kernel-6.19.5-p2p.patch
-BASE_CONFIG=/home/ubuntu/qemu_soc_vendor/kernel/linux-6.19.5/.config   # proven -p2p-ib config
+SELF="$(cd "$(dirname "$0")" && pwd)"
+# KSRC = the Beta-SoC kernel tree (kernel.org linux-6.19.5 + qemu_soc beta-SoC patches).
+# The full tree is NOT in this repo; point KSRC at your checkout (override via env).
+KSRC="${KSRC:-/home/ubuntu/qemu_soc/kernel/linux-6.19.5}"
+# PATCH + BASE_CONFIG are committed alongside this script (repo-local defaults).
+PATCH="${PATCH:-$SELF/kernel-6.19.5-p2p.patch}"                  # the P2P kernel patch
+BASE_CONFIG="${BASE_CONFIG:-$SELF/kernel-6.19.5-p2p-ib.config}"  # proven -p2p-ib config base
 OUTDIR=/home/ubuntu/p2p_build/kernel
 mkdir -p "$OUTDIR"
 

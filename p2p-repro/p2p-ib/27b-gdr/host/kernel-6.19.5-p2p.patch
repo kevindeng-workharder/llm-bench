@@ -1,0 +1,155 @@
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index d2c3885de..87aa88c39 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -7036,8 +7036,18 @@ bool amdgpu_device_is_peer_accessible(struct amdgpu_device *adev,
+ 		dev_info(adev->dev, "PCIe P2P access from peer device %s is not supported by the chipset\n",
+ 			pci_name(peer_adev->pdev));
+ 
+-	bool is_large_bar = adev->gmc.visible_vram_size &&
+-		adev->gmc.real_vram_size == adev->gmc.visible_vram_size;
++	/* Phase-4 RISC-V hack: in our QEMU passthrough setup BAR resize fails,
++	 * so visible_vram_size (256 MB) != real_vram_size (16+ GB).  The QEMU
++	 * iommufd backend (Phase 3) exports the entire BAR via dma-buf so peer
++	 * GPUs can address it through the host AMD-Vi mappings.  Force-allow. */
++	bool is_large_bar = adev->gmc.visible_vram_size != 0;
++	dev_warn(adev->dev,
++		"P2P-DBG: pcie_p2p=%d is_large_bar=%d p2p_access=%d xgmi_to_cpu=%d "
++		"vis_vram=%llu real_vram=%llu peer=%s\n",
++		pcie_p2p, is_large_bar, p2p_access,
++		adev->gmc.xgmi.connected_to_cpu,
++		adev->gmc.visible_vram_size, adev->gmc.real_vram_size,
++		pci_name(peer_adev->pdev));
+ 	bool p2p_addressable = amdgpu_device_check_iommu_remap(peer_adev);
+ 
+ 	if (!p2p_addressable) {
+@@ -7049,6 +7059,9 @@ bool amdgpu_device_is_peer_accessible(struct amdgpu_device *adev,
+ 		p2p_addressable = !(adev->gmc.aper_base & address_mask ||
+ 				     aper_limit & address_mask);
+ 	}
++	dev_warn(adev->dev, "P2P-DBG: p2p_addressable=%d (final: %d)\n",
++		p2p_addressable,
++		pcie_p2p && is_large_bar && p2p_access && p2p_addressable);
+ 	return pcie_p2p && is_large_bar && p2p_access && p2p_addressable;
+ #else
+ 	return false;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 3eb32d58a..dd57cc0df 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -1573,6 +1573,13 @@ static int kfd_dev_create_p2p_links(void)
+ 	k = 0;
+ 	list_for_each_entry(dev, &topology_device_list, list)
+ 		k++;
++	pr_warn("P2P-DBG kfd_dev_create_p2p_links: total_topo_devs=%u  HSA_AMD_P2P=%d\n",
++		k,
++#if defined(CONFIG_HSA_AMD_P2P)
++		1);
++#else
++		0);
++#endif
+ 	if (k < 2)
+ 		return 0;
+ 
+@@ -1584,8 +1591,15 @@ static int kfd_dev_create_p2p_links(void)
+ 
+ 	/* create in-direct links */
+ 	ret = kfd_create_indirect_link_prop(new_dev, k);
+-	if (ret < 0)
+-		goto out;
++	pr_warn("P2P-DBG indirect_link_prop ret=%d (k=%u)\n", ret, k);
++	if (ret < 0) {
++		/* Phase-4 RISC-V: kfd_create_indirect_link_prop fails because
++		 * CPU<->CPU iolinks aren't created on non-x86 (see kfd_crat.c
++		 * x86_64 guard).  Don't abort — the GPU<->GPU p2p_link below
++		 * is still useful for HIP peer access. */
++		pr_warn("P2P-DBG bypassing indirect_link_prop failure\n");
++		ret = 0;
++	}
+ 
+ 	/* create p2p links */
+ #if defined(CONFIG_HSA_AMD_P2P)
+@@ -1593,11 +1607,14 @@ static int kfd_dev_create_p2p_links(void)
+ 	list_for_each_entry(dev, &topology_device_list, list) {
+ 		if (dev == new_dev)
+ 			break;
++		pr_warn("P2P-DBG p2p loop i=%u dev->gpu=%p new_dev->gpu=%p\n",
++			i, dev->gpu, new_dev->gpu);
+ 		if (!dev->gpu || !dev->gpu->adev ||
+ 		    (dev->gpu->kfd->hive_id &&
+ 		     dev->gpu->kfd->hive_id == new_dev->gpu->kfd->hive_id &&
+ 		     amdgpu_xgmi_get_is_sharing_enabled(dev->gpu->adev, new_dev->gpu->adev)))
+ 			goto next;
++		pr_warn("P2P-DBG calling kfd_add_peer_prop new=%u peer=%u\n", k, i);
+ 
+ 		/* check if node(s) is/are peer accessible in one direction or bi-direction */
+ 		ret = kfd_add_peer_prop(new_dev, dev, i, k);
+diff --git a/drivers/pci/controller/dwc/Kconfig b/drivers/pci/controller/dwc/Kconfig
+index 519b59422..f4ac7a101 100644
+--- a/drivers/pci/controller/dwc/Kconfig
++++ b/drivers/pci/controller/dwc/Kconfig
+@@ -548,4 +548,19 @@ config PCIE_VISCONTI_HOST
+ 	  Say Y here if you want PCIe controller support on Toshiba Visconti SoC.
+ 	  This driver supports TMPV7708 SoC.
+ 
++config PCIE_RV_GEN4
++	bool "RiVAI rv-gen4 PCIe controller (Beta SoC)"
++	depends on OF
++	select PCIE_DW_HOST
++	help
++	  Say Y here if you want PCIe controller support for the RiVAI rv-gen4
++	  DesignWare-based PCIe host controller used in the Beta RISC-V SoC.
++
++config PCIE_RV_MGMT
++	bool "RiVAI rv-pcie-mgmt management layer (Beta SoC)"
++	depends on OF
++	help
++	  Say Y here for the rv-pcie-mgmt management/bifurcation layer that
++	  wraps the rv-gen4 PCIe controllers on the Beta RISC-V SoC.
++
+ endmenu
+diff --git a/drivers/pci/controller/dwc/Makefile b/drivers/pci/controller/dwc/Makefile
+index 67ba59c02..23a030b93 100644
+--- a/drivers/pci/controller/dwc/Makefile
++++ b/drivers/pci/controller/dwc/Makefile
+@@ -49,6 +49,9 @@ obj-$(CONFIG_PCIE_STM32_EP) += pcie-stm32-ep.o
+ # ARM64 and use internal ifdefs to only build the pieces we need
+ # depending on whether ACPI, the DT driver, or both are enabled.
+ 
++obj-$(CONFIG_PCIE_RV_GEN4) += pcie-rv-gen4.o
++obj-$(CONFIG_PCIE_RV_MGMT) += pcie-rv-mgmt.o
++
+ obj-$(CONFIG_PCIE_AL) += pcie-al.o
+ obj-$(CONFIG_PCI_HISI) += pcie-hisi.o
+ 
+diff --git a/drivers/pci/p2pdma.c b/drivers/pci/p2pdma.c
+index 79a414fd6..963c71ca9 100644
+--- a/drivers/pci/p2pdma.c
++++ b/drivers/pci/p2pdma.c
+@@ -517,12 +517,22 @@ static void seq_buf_print_bus_devfn(struct seq_buf *buf, struct pci_dev *pdev)
+ 
+ static bool cpu_supports_p2pdma(void)
+ {
++	/*
++	 * Phase-4 RISC-V hack: claim CPU supports P2PDMA so calc_map_type_and_dist()
++	 * accepts host-bridge-routed peer paths.  In our QEMU passthrough setup the
++	 * host CPU IS Zen (AMD Ryzen Raphael IO Die) and the host AMD-Vi IOMMU
++	 * has all peer-BAR mappings installed via the Phase-3 iommufd dma-buf path.
++	 * The guest just needs amdgpu to issue the call.
++	 */
++	return true;
+ #ifdef CONFIG_X86
+-	struct cpuinfo_x86 *c = &cpu_data(0);
++	{
++		struct cpuinfo_x86 *c = &cpu_data(0);
+ 
+-	/* Any AMD CPU whose family ID is Zen or newer supports p2pdma */
+-	if (c->x86_vendor == X86_VENDOR_AMD && c->x86 >= 0x17)
+-		return true;
++		/* Any AMD CPU whose family ID is Zen or newer supports p2pdma */
++		if (c->x86_vendor == X86_VENDOR_AMD && c->x86 >= 0x17)
++			return true;
++	}
+ #endif
+ 
+ 	return false;

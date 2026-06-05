@@ -47,7 +47,9 @@ change in the guest launchers vs `27b-graph`.
 |------|------|
 | `start_vm1_leader.sh` | LEADER (node 0) = `27b-graph` leader **+ `RCCL_FORCE_ENABLE_DMABUF=1`** → VM1 `/home/ubuntu/graph27b_vm.sh` |
 | `start_vm2_follower_headless.sh` | FOLLOWER (node 1) = same + the env var → VM2 `/home/ubuntu/graph27b_vm.sh` |
-| `host/build_kernel_unified.sh` | build `Image-6.19.5-p2p-all`: patched `qemu_soc` source + the proven `-p2p-ib` `.config` base + gcc-15. Gates on a config + hack verify. |
+| `host/build_kernel_unified.sh` | build `Image-6.19.5-p2p-all`: applies the patch to the Beta-SoC kernel tree + the proven `-p2p-ib` `.config` base + gcc-15. Gates on a config + hack verify. |
+| `host/kernel-6.19.5-p2p.patch` | **the actual P2P kernel patch.** `cpu_supports_p2pdma()→true` (`p2pdma.c` — the GDR lever), amdgpu `is_large_bar`+P2P-DBG (`amdgpu_device.c`), `kfd_topology.c`, and the Beta-SoC DWC PCIe controller Kconfig/Makefile. Applied onto a `linux-6.19.5` tree that already carries the qemu_soc Beta-SoC patches. |
+| `host/kernel-6.19.5-p2p-ib.config` | the proven `-p2p-ib` kernel `.config` used as the build base (`PCI_P2PDMA=y` `HSA_AMD_P2P=y` `ZONE_DEVICE=y` + full IB). guest.config lacked `ZONE_DEVICE`, so it could *not* be the base — `olddefconfig` would drop `PCI_P2PDMA`. |
 | `host/install_unified_modules.sh` | offline loop-mount both guest images and `rsync`+`depmod` the unified modules (incl. `mlx5_ib`, `amdgpu`) |
 | `host/start_vm{1,2}_64g_unified_bg.sh` | QEMU launchers pointing `-kernel` at `Image-6.19.5-p2p-all` (serial→file, detachable) |
 | `host/start_beta_2gpu_unified_bg.sh` | single-VM dual-GPU launcher on the same kernel (`+iommu.passthrough=1`) — the unified kernel serves both scenarios |
