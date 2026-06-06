@@ -64,3 +64,21 @@ PP trades per-layer **all-reduce** for **one activation handoff per stage bounda
 3. **Boot bring-up** (also see [../p2p-ib/27b-gdr/README.md](../p2p-ib/27b-gdr/README.md)):
    graceful-poweroff the single-VM first (clean rootfs unmount) or the 2 VMs hit a
    models.img lock / port race; mlx5 IB link + IPs (10.99.0.1/.2) come up ~178 s post-boot.
+
+## Multimodal (image) also verified on cross-VM PP
+
+Re-ran the same cross-VM PP with the vision path **on** — `--limit-mm-per-prompt
+'{"image":1,"video":0}'`, **`--mm-encoder-attn-backend TRITON_ATTN`** (the O(N) ViT fix),
+`max_pixels 200704`. A PIL test image (red circle upper-left + blue square lower-right) was
+described **correctly**: *"1. A red circle … upper left. 2. A blue square … lower right."*
+(t=39.8 s, 91 prompt tokens incl. image, output complete). Text decode was **unchanged** with
+the vision tower loaded: single 7.57 / N=4 aggregate 25.38 tok/s (≈ the text-only numbers — a
+loaded-but-idle vision tower doesn't slow text decode). So **image-multimodal works on
+cross-VM PP**.
+
+The `--mm-encoder-attn-backend TRITON_ATTN` flag is **load-bearing**: without it the ViT falls
+back to `TORCH_SDPA` (O(N²) math — *"Torch was not compiled with memory efficient attention"*),
+and the startup profile_run's dummy-ViT encode grinds for *hours* on the follower (cache stops
+growing, GPU 0 %, stuck in `F.scaled_dot_product_attention`) — that stalled the first
+multimodal attempt. With TRITON_ATTN (O(N)) there is no stall. (Video would additionally need
+`pyav` on VM2 — the follower lacks it — so only image is verified here.)
