@@ -1,9 +1,10 @@
-# P2P reproduction archive — riscv64 + ROCm gfx1100 + vLLM TP=2
+# P2P reproduction archive — riscv64 + ROCm gfx1100 + vLLM TP=2 (+ a PP=2 control)
 
 Reproducible launchers, docs, and verified results for running vLLM
 tensor-parallel (TP=2) inference on the riscv64/QEMU + ROCm 7.2.3 (gfx1100)
 stack, organised by **how the two GPUs talk to each other**. Each scenario is
-self-contained under its own directory.
+self-contained under its own directory. (Plus one off-axis control — [pp2](pp2/) —
+that swaps TP for **pipeline parallelism** to confirm TP is the right choice on single-VM.)
 
 Host: `p2p-host` (10.103.11.199, AMD Turin). Stack: ROCm 7.2.3 + PyTorch 2.11 +
 RCCL 2.27.7 (`96a25b5+`) + vLLM `v0.21.1.dev0+gad7125a43`, kernel `6.19.5-p2p`.
@@ -27,6 +28,16 @@ All three share the same model runtime; they differ only in the NCCL transport
 and (for IB) the number of guests. The differentiator lives in each launcher's
 env overrides applied *after* sourcing the shared `common/vllm-serve-env.sh`.
 
+## A different axis: parallelism mode — [pp2](pp2/)
+
+The three scenarios above vary the **transport** while holding parallelism at TP=2.
+[**pp2**](pp2/) instead varies the **parallelism mode** — pipeline-parallel (PP=2, split by
+layer-depth) on the same single-VM dual-GPU box. It's the control that confirms **TP wins on
+single-VM** (PP is ~8–19 % slower: fast Infinity-Fabric makes TP's all-reduce cheap and PP
+can't recover its batch=1 bubble) and that **PP is what you'd reach for on the slow cross-VM
+IB link** ([p2p-ib](p2p-ib/)). Verified 2026-06-06: 14.21 tok/s single / 43.62 agg @ N=4.
+See [pp2/RESULTS.md](pp2/RESULTS.md).
+
 ## Layout
 
 ```
@@ -44,8 +55,10 @@ p2p-repro/
 │   └── reference/ib-p2p-cross-vm.md   comprehensive host-side doc (VFIO, stages, 6 blockers)
 ├── p2p-direct/                ★ archived 2026-06-05 (P2P/IPC, ~16 tok/s — beats SHM)
 │   ├── README.md  RESULTS.md  start_dual_gpu.sh  rccl-topo.xml  bench.py
-└── p2p-shm/                   ★ archived 2026-06-05 (SHM/direct, ~15 tok/s)
-    ├── README.md  RESULTS.md  start_shm.sh  rccl-topo-split.xml  bench.py
+├── p2p-shm/                   ★ archived 2026-06-05 (SHM/direct, ~15 tok/s)
+│   ├── README.md  RESULTS.md  start_shm.sh  rccl-topo-split.xml  bench.py
+└── pp2/                       ★ archived 2026-06-06 (PP=2 vs TP=2 — TP wins on single-VM)
+    └── README.md  RESULTS.md   (launcher: ../servers/vllm/...-graph-pp2.sh — no topo XML)
 ```
 
 ## Shared prerequisites (all scenarios)
@@ -73,4 +86,6 @@ p2p-ib was brought up and benchmarked end-to-end on 2026-06-03 (`p2p-ib/RESULTS.
 with GDR added 2026-06-05 (`p2p-ib/27b-gdr/`). p2p-direct was verified and archived
 2026-06-05 (`p2p-direct/RESULTS.md` — ~16 tok/s single-stream, beating SHM), and
 p2p-shm verified the same day (`p2p-shm/RESULTS.md` — ~15 tok/s via `SHM/direct`).
-All three scenarios are now archived and benchmarked.
+All three transport scenarios are now archived and benchmarked. The off-axis
+[pp2](pp2/) control (PP=2 vs TP=2) was added 2026-06-06 — TP wins on single-VM; PP's niche
+is the cross-VM IB link.
