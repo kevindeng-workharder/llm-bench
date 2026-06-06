@@ -1,8 +1,15 @@
-# RESULTS — pp2 (pipeline parallelism PP=2, single-VM dual-GPU)
+# RESULTS — p2p-direct-pp2 (PP=2 on single-VM, default P2P)
+
+The **PP cell** of the [p2p-direct](../p2p-direct) transport. Cross-VM IB × PP (where PP is
+expected to win) is the separate [p2p-ib-pp2](../p2p-ib-pp2) cell.
 
 **Verified:** 2026-06-06, host `10.103.11.199`.
 **Model / mode:** `Qwen3.6-27B-Quark-W8A8-INT8`, **PP=2** (TP=1), text-only, max-model-len
 8192, max-num-seqs 8, cudagraph `FULL_DECODE_ONLY` `[1,2,4,8]`, gemv INT8 patch.
+**Transport:** vLLM default NCCL topology (no explicit topo XML — PP needs none), so the
+inter-stage send/recv runs over the default single-VM P2P/IPC path (≈ p2p-direct). The
+`NCCL_DEBUG=WARN` launcher suppressed the per-channel `via …` line, so this isn't grep-proven
+the way the TP transports are, but single-VM default on this kernel resolves to P2P/IPC.
 **Launcher:** [`../../servers/vllm/qwen3_6-27b-quark-int8-graph-pp2.sh`](../../servers/vllm/qwen3_6-27b-quark-int8-graph-pp2.sh).
 
 ## Model support

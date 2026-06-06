@@ -3,8 +3,9 @@
 Reproducible launchers, docs, and verified results for running vLLM
 tensor-parallel (TP=2) inference on the riscv64/QEMU + ROCm 7.2.3 (gfx1100)
 stack, organised by **how the two GPUs talk to each other**. Each scenario is
-self-contained under its own directory. (Plus one off-axis control — [pp2](pp2/) —
-that swaps TP for **pipeline parallelism** to confirm TP is the right choice on single-VM.)
+self-contained under its own directory. The three transport scenarios are all **TP=2**;
+their **PP=2** counterparts (same transport, different parallelism mode) live in
+`<transport>-pp2` dirs — see the TP×PP matrix below.
 
 Host: `p2p-host` (10.103.11.199, AMD Turin). Stack: ROCm 7.2.3 + PyTorch 2.11 +
 RCCL 2.27.7 (`96a25b5+`) + vLLM `v0.21.1.dev0+gad7125a43`, kernel `6.19.5-p2p`.
@@ -28,15 +29,21 @@ All three share the same model runtime; they differ only in the NCCL transport
 and (for IB) the number of guests. The differentiator lives in each launcher's
 env overrides applied *after* sourcing the shared `common/vllm-serve-env.sh`.
 
-## A different axis: parallelism mode — [pp2](pp2/)
+## The TP × PP matrix
 
-The three scenarios above vary the **transport** while holding parallelism at TP=2.
-[**pp2**](pp2/) instead varies the **parallelism mode** — pipeline-parallel (PP=2, split by
-layer-depth) on the same single-VM dual-GPU box. It's the control that confirms **TP wins on
-single-VM** (PP is ~8–19 % slower: fast Infinity-Fabric makes TP's all-reduce cheap and PP
-can't recover its batch=1 bubble) and that **PP is what you'd reach for on the slow cross-VM
-IB link** ([p2p-ib](p2p-ib/)). Verified 2026-06-06: 14.21 tok/s single / 43.62 agg @ N=4.
-See [pp2/RESULTS.md](pp2/RESULTS.md).
+The three scenarios above are the **TP** cells (one per transport). Their **PP** counterparts
+live in `<transport>-pp2` dirs — same transport, **pipeline-parallel** (split layers by depth,
+one handoff/stage) instead of tensor-parallel (split each layer, all-reduce/layer):
+
+| transport | TP cell | PP cell (`-pp2`) |
+|---|---|---|
+| cross-VM IB | [p2p-ib](p2p-ib/) ✅ | **p2p-ib-pp2** — the cell where PP *should beat* TP (slow link); **not yet run** |
+| single-VM P2P | [p2p-direct](p2p-direct/) ✅ | [p2p-direct-pp2](p2p-direct-pp2/) ✅ — PP **~8–19 % slower** (single-VM → TP wins) |
+| single-VM SHM | [p2p-shm](p2p-shm/) ✅ | *(redundant with p2p-direct-pp2 — both single-VM; skipped)* |
+
+PP trades per-layer all-reduce for one per-stage handoff, so it only pays off on a **slow
+interconnect**. Hence single-VM PP ([p2p-direct-pp2](p2p-direct-pp2/): 14.21 single / 43.62 agg
+@ N=4) loses to TP, and the one cell worth running is cross-VM **p2p-ib-pp2**.
 
 ## Layout
 
@@ -57,8 +64,9 @@ p2p-repro/
 │   ├── README.md  RESULTS.md  start_dual_gpu.sh  rccl-topo.xml  bench.py
 ├── p2p-shm/                   ★ archived 2026-06-05 (SHM/direct, ~15 tok/s)
 │   ├── README.md  RESULTS.md  start_shm.sh  rccl-topo-split.xml  bench.py
-└── pp2/                       ★ archived 2026-06-06 (PP=2 vs TP=2 — TP wins on single-VM)
-    └── README.md  RESULTS.md   (launcher: ../servers/vllm/...-graph-pp2.sh — no topo XML)
+├── p2p-direct-pp2/            ★ archived 2026-06-06 (p2p-direct × PP — TP wins on single-VM)
+│   └── README.md  RESULTS.md   (launcher in ../servers/vllm/...-graph-pp2.sh — no topo XML)
+└── p2p-ib-pp2/                ☐ cross-VM IB × PP — the cell where PP may beat TP (to run)
 ```
 
 ## Shared prerequisites (all scenarios)
@@ -86,6 +94,6 @@ p2p-ib was brought up and benchmarked end-to-end on 2026-06-03 (`p2p-ib/RESULTS.
 with GDR added 2026-06-05 (`p2p-ib/27b-gdr/`). p2p-direct was verified and archived
 2026-06-05 (`p2p-direct/RESULTS.md` — ~16 tok/s single-stream, beating SHM), and
 p2p-shm verified the same day (`p2p-shm/RESULTS.md` — ~15 tok/s via `SHM/direct`).
-All three transport scenarios are now archived and benchmarked. The off-axis
-[pp2](pp2/) control (PP=2 vs TP=2) was added 2026-06-06 — TP wins on single-VM; PP's niche
-is the cross-VM IB link.
+All three transport scenarios are now archived and benchmarked. The PP cells are filed as
+`<transport>-pp2`: [p2p-direct-pp2](p2p-direct-pp2/) added 2026-06-06 (single-VM → TP wins);
+`p2p-ib-pp2` (cross-VM IB × PP — PP's expected niche) is the one cell still to run.

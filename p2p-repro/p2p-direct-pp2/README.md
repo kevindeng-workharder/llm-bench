@@ -1,16 +1,21 @@
-# pp2 — pipeline parallelism (PP=2) instead of tensor parallelism
+# p2p-direct-pp2 — single-VM P2P, pipeline-parallel (PP=2)
 
-A **different axis** from the three transport scenarios above. Those are all **TP=2**
-(split every layer, all-reduce each layer) varied by *how the two GPUs talk*; this one
-keeps the single-VM dual-GPU setup but changes the **parallelism mode** to
-**pipeline-parallel (PP=2)** — split the 64 GDN/full-attn layers **by depth**
-(`Worker_PP0` = first half, `Worker_PP1` = second half), with **one activation handoff
-per stage boundary** instead of an all-reduce every layer.
+The **PP cell** of the [p2p-direct](../p2p-direct) transport: same single-VM dual-GPU box,
+but the **parallelism mode** is **pipeline-parallel (PP=2)** instead of tensor-parallel —
+split the 64 GDN/full-attn layers **by depth** (`Worker_PP0` = first half, `Worker_PP1` =
+second half), one activation handoff per stage boundary instead of an all-reduce every
+layer. (It uses vLLM's default NCCL topology — no explicit topo XML, PP needs none — so the
+inter-stage send/recv runs over the default single-VM P2P/IPC path.)
 
-The point: PP trades per-layer all-reduce for a single per-stage handoff, which only
-pays off on a **slow interconnect**. On single-VM (fast Infinity-Fabric) it doesn't — so
-this scenario is the control that shows **TP wins on single-VM, and PP is the thing you'd
-reach for on the cross-VM IB path** ([../p2p-ib](../p2p-ib)).
+**The TP×PP matrix:** the `p2p-ib` / `p2p-direct` / `p2p-shm` dirs are the **TP** cells (one
+per transport); the `<transport>-pp2` dirs are the matching **PP** cells. This is
+`p2p-direct × PP`. Its companion `p2p-ib-pp2` (cross-VM IB × PP) is the cell where PP is
+*expected* to beat TP.
+
+The point: PP trades per-layer all-reduce for a single per-stage handoff, which only pays
+off on a **slow interconnect**. On single-VM (fast Infinity-Fabric) it doesn't — so this
+cell is the **control** that shows **TP wins on single-VM**, and that PP is the thing you'd
+reach for on the cross-VM IB path ([../p2p-ib](../p2p-ib)).
 
 - **Status:** ✅ verified 2026-06-06 — PP=2 boots on the hybrid GDN model (`Qwen3_5`
   declares `SupportsPP`; workers `Worker_PP0`/`Worker_PP1`), output correct, **no late
