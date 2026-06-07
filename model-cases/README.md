@@ -20,6 +20,11 @@ served from this rootfs at all, and how).
   `/opt/llama` (llama.cpp), and the whole `/home/ubuntu/vllm-serve/` dir
   (`server-env.sh`, `launch-server.sh`). Launchers that depended on those were
   **retrofitted** to be self-contained on `vllm-venv` (see each case).
+  - `ai-2.10` specifically was a vLLM **0.19** venv shipped as a docker **payload
+    tarball** (`docker/Dockerfile` → `payload/home-ubuntu-ai-2.10.tar.gz`), not on
+    any rootfs backup and now lost. gemma "ran before" on it (0.19's older attention
+    predates the LDS-heavy unified-attn kernel); it now serves on `vllm-venv` (0.21)
+    via the [RDNA3 LDS fix](gemma-4-e2b/apply-gfx1100-lds-fix.py), so 0.19 is moot.
 
 ## Status
 
@@ -27,7 +32,7 @@ served from this rootfs at all, and how).
 |---|---|---|---|---|
 | Qwen3.6-27B-Quark-W8A8-INT8 | int8 | 2 | see [`../p2p-repro/`](../p2p-repro/) (TP/PP/transport matrix) | ✅ flagship, fully benched |
 | [Qwen3.6-27B-AWQ](qwen3_6-27b-awq/) | AWQ | 2 | `qwen3_6-27b-awq-graph-tp2.sh` | ✅ **verified** (served; ~56 min cold compile) |
-| [gemma-4-E2B-it](gemma-4-e2b/) | bf16 | 1 | `gemma4-e2b-card1-dual.sh` | ❌ **loads but inference crashes** — gfx1100 LDS limit (kernel needs 66,560 B > 64 KB); launcher correct, needs RDNA3 kernel re-tuning |
+| [gemma-4-E2B-it](gemma-4-e2b/) | bf16 | 1 | `gemma4-e2b-card1-dual.sh` | ✅ **verified** — needed an RDNA3 LDS fix ([patch](gemma-4-e2b/apply-gfx1100-lds-fix.py): TILE_SIZE 32→16 for head_dim 256); 12.4 tok/s |
 | [Qwen3-4B](qwen3-4b-fp16/) | fp16 | 1 | `qwen3-4b-fp16-graph-tp1.sh` | ✅ **verified** (self-contained launcher) |
 | [Qwen3.6-27B-FP8](qwen3_6-27b-fp8/) | FP8 | 2/1 | `qwen3_6-27b-fp8-*.sh` | ⏸️ **deferred** (re-pointed; FP8-on-RDNA3 uncertain, not tested) |
 | [Qwen3-30B-A3B-AWQ](qwen3-30b-awq/) | AWQ | 1/2 | `qwen3-30b-awq-*.sh` | ❌ **blocked** — model not on this `/data` |

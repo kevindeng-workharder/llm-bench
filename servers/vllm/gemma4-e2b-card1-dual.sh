@@ -9,6 +9,14 @@
 # it text-only here. Architecture: dense, hidden_size matches a roughly
 # 4B-equivalent text decoder. Safetensors size 14.9 GB → ~5 GB headroom
 # on a 20 GB card for KV cache + activations.
+#
+# gfx1100 PREREQUISITE: gemma's head_dim 256 overflows the V1 TRITON_ATTN
+# kernel's 64 KB LDS (needs 66,560 B) -> first inference 500s with triton
+# OutOfResources. Apply the one-time, idempotent fix to vllm-venv's attention
+# before first serve (TILE_SIZE 32->16 for head_dim>=256):
+#   python3 model-cases/gemma-4-e2b/apply-gfx1100-lds-fix.py \
+#     /home/ubuntu/vllm-venv/lib/python3.13/site-packages/vllm/v1/attention/ops/triton_unified_attention.py
+# See model-cases/gemma-4-e2b/ for the full diagnosis.
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../../vllm-serve/server-env.sh" 2>/dev/null || \

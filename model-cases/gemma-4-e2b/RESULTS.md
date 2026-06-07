@@ -1,38 +1,52 @@
-# RESULTS — gemma-4-E2B-it on vllm-venv
+# RESULTS — gemma-4-E2B-it on vllm-venv ✅
 
-**Tested:** 2026-06-07, host `10.103.11.199`, single guest, TP=1 (one gfx1100, GPU1).
+**Verified:** 2026-06-07, host `10.103.11.199`, single guest, TP=1 (one gfx1100, GPU1).
 **Launcher:** [`../../servers/vllm/gemma4-e2b-card1-dual.sh`](../../servers/vllm/gemma4-e2b-card1-dual.sh)
-on `/home/ubuntu/vllm-venv` (source-fixed).
+on `/home/ubuntu/vllm-venv` (vLLM 0.21), with the RDNA3 LDS fix
+([`apply-gfx1100-lds-fix.py`](apply-gfx1100-lds-fix.py)) applied to its Triton attention.
 
-## Loads — but crashes at inference on gfx1100 (LDS limit)
+## Serves — correct output
 
-The launcher fix is correct: gemma **loads, compiles, and reaches `Application startup
-complete`** on vllm-venv (no missing-file error). But the **first inference request 500s** —
-the EngineCore dies with:
+- vLLM V1 engine, `model=/data/gemma-4-E2B-it`, `dtype=torch.float16`, max-model-len
+  4096, cudagraph `FULL_DECODE_ONLY`, served as `gemma4-e2b` on port 8002.
+- **First request: 48.4 s** — the prefill attention kernel (now TILE_SIZE=16) JIT-compiles
+  on this slow host; cached after.
+- **Output correct:** "What is the capital of France?" → **"The capital of France is Paris."**
+- **Decode: 12.36 tok/s** (51 tok, TTFT 1.7 s on the warm 2nd request). Slower than the
+  dense Qwen3-4B's 36 tok/s on the same GPU — expected: gemma's **head_dim 256 is 2×**
+  Qwen's 128 (heavier attention), and the fix **halves the KV tile** (TILE_SIZE 16 vs 32),
+  trading attention throughput for fitting the 64 KB LDS. Correctness/serving was the goal.
+
+## The fix — and how the root cause was pinned
+
+gemma loaded and reached `Application startup complete`, but the **first inference 500'd**:
 
 ```
-triton.runtime.errors.OutOfResources: out of resource: shared memory,
-Required: 66560, Hardware limit: 65536. Reducing block sizes or `num_stages` may help.
+triton.runtime.errors.OutOfResources: shared memory, Required: 66560, Hardware limit: 65536
 → vllm.v1.engine.exceptions.EngineDeadError → POST /v1/chat/completions 500
 ```
 
-A gemma Triton kernel is configured for **66,560 bytes (65 KB) of LDS / shared memory**, but
-**gfx1100 (RDNA3) has only 64 KB LDS per CU** (65,536 bytes). The kernel cannot launch.
+head_dim 256 (vs Qwen 128) makes vLLM's V1 ROCm TRITON_ATTN kernel ask for **66,560 B of
+LDS**, over gfx1100 (RDNA3)'s **65,536 B (64 KB) per CU**. (V1 ROCm has no working
+TORCH_SDPA — it ignores `VLLM_ATTENTION_BACKEND` and always uses TRITON_ATTN, so the
+backend can't be swapped; the kernel itself had to change.)
 
-## This is a hardware-kernel mismatch, not a launcher/env issue
+**Diagnostic chain (the data point that mattered):** a first patch capping `BLOCK_M`
+16→8 dropped the requirement only **66560 → 66048 (512 B)**. That tiny delta proved the
+**BLOCK_M-independent LDS is ~65,536 B — already at the limit by itself.** No BLOCK_M
+value could ever fit. That independent part is the **K+V tiles** (`TILE_SIZE × head_dim`,
+head_dim fixed at 256), so the only real lever is **TILE_SIZE**. Halving it 32→16 (via
+`_get_tile_size`) ~halves the K+V tiles → requirement clears 64 KB with ~16 KB margin.
 
-- The venv + source fixes are validated — gemma got all the way to serving.
-- It is **gemma-specific**: 27B-Quark (int8), Qwen3.6-27B-AWQ, and Qwen3-4B all serve fine on
-  the same gfx1100 (their kernels fit 64 KB LDS). Only gemma's exceeds it.
-- To run gemma here you'd have to **re-tune its kernels for RDNA3's smaller LDS** (smaller
-  block sizes / fewer `num_stages`, per Triton's own hint) — a real porting task, not a config
-  flip. Not done here.
+Two scoped edits, both gated on `head_size >= 256` (Qwen 128-dim untouched), bf16-only
+(fp8 needs TILE_SIZE≥32). Smaller tiles/blocks are always numerically correct — just finer.
 
-## Path-to-here (env issues, all fixed, before the real blocker showed)
+## No `ai-2.10` needed
 
-The first three attempts died on environment problems that masked this: a leaked `VLLM::`
-worker (22 GiB/GPU), parallel-compile CPU contention (startup handshake timeout), and a
-page-cache kswapd thrash (fixed by a VM reboot). On the clean reboot gemma finally compiled
-through — and surfaced the genuine LDS limit above.
+gemma "ran before" inside a docker container on an `ai-2.10` = **vLLM 0.19** venv (whose
+older attention kernel predates this LDS-heavy unified-attention). That venv was a docker
+**payload tarball** (`docker/Dockerfile` → `payload/home-ubuntu-ai-2.10.tar.gz`), **not on
+any rootfs backup** and now lost. This fix makes gemma serve on the **current `vllm-venv`
+(0.21)** — the same venv as 27B-Quark / AWQ / 4B — so the lost 0.19 venv is irrelevant.
 
-**Verdict:** ❌ does not serve on gfx1100 as-is (LDS-OOM); launcher is correct.
+**Verdict:** ✅ serves on gfx1100 with the LDS fix; output correct; launcher correct.
