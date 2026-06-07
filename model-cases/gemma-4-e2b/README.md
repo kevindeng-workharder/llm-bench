@@ -11,10 +11,9 @@ fast sanity case for the rootfs.
   `/home/ubuntu/vllm-venv`; (2) it sourced the missing `vllm-serve/server-env.sh` —
   re-sourced the present `/home/ubuntu/vllm-serve-env.sh` instead (same pattern as the
   4B fix). No other change.
-- **Status:** ⏳ **launcher fixed; serve-confirm pending.** The source-fix is validated —
-  gemma loads on vllm-venv with no missing-file error. A full serve-confirm is still
-  pending: gemma's cold compile is extremely slow on this QEMU/TCG host (the weight read
-  alone took **700 s**), and three earlier attempts died on *environment* issues — a leaked
-  awq worker (22 GiB/GPU), parallel-compile CPU contention (startup-handshake timeout), and
-  a page-cache-pressure kswapd thrash (fixed by a VM reboot). gemma is a mainstream vLLM 0.21
-  model, so it is expected to serve; RESULTS will be added once the compile lands.
+- **Status:** ❌ **loads but does not serve on gfx1100.** The launcher fix is correct — gemma
+  compiles and reaches `Application startup complete` — but the **first inference 500s**: a gemma
+  Triton kernel needs **66,560 B of LDS, over the 64 KB (65,536 B) gfx1100 limit**
+  (`triton … OutOfResources: shared memory` → `EngineDeadError`). A hardware-kernel mismatch,
+  **gemma-specific** (awq / 4B / 27B-Quark all serve on the same GPU); needs RDNA3 kernel
+  re-tuning (smaller blocks). See [RESULTS.md](RESULTS.md).
