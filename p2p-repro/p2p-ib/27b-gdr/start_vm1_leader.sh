@@ -8,6 +8,8 @@
 set -eu
 source /home/ubuntu/vllm-serve-env.sh
 export RCCL_FORCE_ENABLE_DMABUF=1   # GDR: bypass RCCL gzip /proc/config.gz dmabuf check (rocmwrap.cc); needs the unified kernel for the real pci_p2pdma registration
+export NCCL_NET_GDR_LEVEL=SYS       # GDR: allow GPUDirect over the cross-root PCIe path (else NCCL stays GDR 0); matches tools/run_nccl_test.sh
+export NCCL_DMABUF_ENABLE=1
 # riscv64: use ROCm clang for Triton's C launcher compile. Stock gcc (cc1)
 # heap-corrupts (free(): invalid size -> SIGABRT) building scaled_mm_kernel's
 # __triton_launcher.c in the loaded-model worker. Triton's build.py honors $CC.
@@ -28,7 +30,7 @@ export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200
 export VLLM_NCCL_SO_PATH=/home/ubuntu/librccl-rebuilt.so.1.0
 export LD_PRELOAD=/home/ubuntu/librccl-rebuilt.so.1.0
 export PYTHONPATH=/home/ubuntu:${PYTHONPATH:-}
-exec /data/vllm0.21-pt2.11/bin/python -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python -m vllm.entrypoints.openai.api_server \
     --model /data/Qwen3.6-27B-Quark-W8A8-INT8 \
     --served-model-name qwen3_6-27b-int8 \
     --quantization quark \

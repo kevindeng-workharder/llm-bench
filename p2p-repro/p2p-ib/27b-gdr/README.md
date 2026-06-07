@@ -5,9 +5,11 @@ RoCE path, and cudagraph config, but the NIC now DMAs **directly to/from GPU
 VRAM** instead of bouncing through host memory. This closes the parent README's
 *"Known limit: GDR not tested (no peer-bridge across PCIe roots → host-bounce)"*.
 
-- **Status:** ✅ verified 2026-06-05 — NCCL reports **`use ring PXN 0 GDR 1`**
-  (was `GDR 0`), `DMA_BUF_SUPPORT` engaged (was "Failed"), correct output,
-  ~5.4–6.2 tok/s steady-state single-stream. See [RESULTS.md](RESULTS.md).
+- **Status:** ✅ verified 2026-06-05; **re-confirmed 2026-06-07 on vllm-venv** — NCCL reports
+  **`use ring PXN 0 GDR 1`** + `via NET/IB/0/GDRDMA`, correct output, **5.60 tok/s** single /
+  19.89 N=4 (TTFT-cancelled). The re-test caught that the vLLM launcher also needs
+  **`NCCL_NET_GDR_LEVEL=SYS`** + **`NCCL_DMABUF_ENABLE=1`** (not just `RCCL_FORCE_ENABLE_DMABUF=1`),
+  or it silently runs `GDR 0` — now fixed in the launchers. See [RESULTS.md](RESULTS.md).
 - **Why it had been failing:** TWO independent software bugs, both required to
   fix — one kernel, one RCCL. The HANDOFF that blamed "QEMU PCIe topology" was
   wrong; nothing about the topology changed.
@@ -38,8 +40,15 @@ RCCL "double-checks" by reading the kernel config; its path list has
 **before** ever trying `/boot/config-$(uname -r)` → prints
 `DMA_BUF_SUPPORT Failed due to OS kernel support`. So even a perfectly correct
 kernel is rejected. **Fix:** `export RCCL_FORCE_ENABLE_DMABUF=1` (rocmwrap.cc:154
-skips the whole file check; the HSA query alone then governs). This is the only
-change in the guest launchers vs `27b-graph`.
+skips the whole file check; the HSA query alone then governs).
+
+**3. NCCL — GDR level must be forced to `SYS` (found 2026-06-07).** Even with bugs 1+2 fixed, the
+vLLM launcher logged `GDR 0` until it *also* exported **`NCCL_NET_GDR_LEVEL=SYS`** +
+**`NCCL_DMABUF_ENABLE=1`**. The cross-root GPU↔NIC pair exceeds NCCL's default GDR distance, so GDR is
+disabled for that link unless the level is forced to `SYS`. [`tools/run_nccl_test.sh`](tools/run_nccl_test.sh)
+always set these (hence it showed `GDR 1`); the vLLM launcher had only `RCCL_FORCE_ENABLE_DMABUF=1` and so
+silently fell back to host-bounce. With all **three** env vars the vLLM run logs `use ring PXN 0 GDR 1` +
+`via NET/IB/0/GDRDMA`. So the guest launchers differ from `27b-graph` by **three** env vars, not one.
 
 ## Files
 

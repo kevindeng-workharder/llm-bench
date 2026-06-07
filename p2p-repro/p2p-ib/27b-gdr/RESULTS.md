@@ -19,6 +19,27 @@ gcc-15.2. Modules installed into both guest rootfs images.
 | steady decode (N=1) | ~5.2 tok/s | **~5.4–6.2 tok/s** (peak 6.2) |
 | kernel | `Image-6.19.5-p2p-ib` (stock tree) | `Image-6.19.5-p2p-all` (patched + IB) |
 
+## Re-test 2026-06-07 (vllm-venv) — caught a real bug: GDR was silently OFF in the vLLM launcher
+
+Re-benching on vllm-venv (TTFT-cancelled, same method as `27b-graph` / `pp2`) exposed that **GDR-1 was
+not engaging from the vLLM launcher** — `use ring PXN 0 GDR 0`, despite the unified kernel +
+`RCCL_FORCE_ENABLE_DMABUF=1`. But [`tools/run_nccl_test.sh`](tools/run_nccl_test.sh) (pure 2-node NCCL,
+no model) **did** get `GDR 1` / `via NET/IB/0/GDRDMA` on the *same* setup. The difference was two env
+vars the test sets but the vLLM launcher lacked: **`NCCL_NET_GDR_LEVEL=SYS`** (the cross-root GPU↔NIC
+pair exceeds NCCL's default GDR distance, so GDR is off unless forced to SYS) and
+**`NCCL_DMABUF_ENABLE=1`**. Added both → vLLM now logs `use ring PXN 0 GDR 1` + `via NET/IB/0/GDRDMA`.
+
+| metric (vllm-venv, TTFT-cancelled, 2048/seqs8) | `27b-graph` (GDR 0) | **`27b-gdr` (GDR 1, fixed)** |
+|---|--:|--:|
+| single-stream | 4.41 | **5.60** |
+| N=4 aggregate | 15.03 | **19.89** |
+
+GDR-1 gives TP **+27 % single / +32 % N=4** over host-bounced GDR-0 — a cleaner win than the 06-05 note
+(~5.4–6.2 vs ~5.2, avg-throughput metric) once the env bug is fixed and the baseline is consistent.
+PP still beats even GDR-1 TP (pp2 7.32 / gdr 5.60 = **1.31×** single — PP's 1-handoff/token comm wins on
+single-stream; see [../../p2p-ib-pp2/RESULTS.md](../../p2p-ib-pp2/RESULTS.md)). Likely the 06-05 launcher
+carried these envs and a later cleanup dropped them to "just `RCCL_FORCE_ENABLE_DMABUF=1`".
+
 ## Proof 1 — fast 2-node RoCE all-reduce (`tools/run_nccl_test.sh`, no model load)
 
 ```

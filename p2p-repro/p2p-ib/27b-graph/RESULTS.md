@@ -22,6 +22,11 @@ signalling under cudagraph**. Disabling it (`--no-async-scheduling`) gives a
 | **graph + `--no-async-scheduling`, N=1** | **~3.0** | ✅ stable |
 | **graph + `--no-async-scheduling`, N=4 concurrent** | **~11 (aggregate)** | ✅ **136 reqs, 0 hang over 20 min** |
 
+> **Re-tested 2026-06-07 on vllm-venv (post-gemv):** single-stream **4.41 tok/s** (3-run mean), N=4
+> aggregate **15.03** — higher than the ~3.0/~11 above, which were measured 2026-06-03/04 **before the
+> gemv INT8 patch** (the M=1 decode speedup is the difference). This corrected TP baseline is what the
+> [p2p-ib-pp2 crossover](../../p2p-ib-pp2/RESULTS.md) now uses: PP 7.32 / TP 4.41 ≈ **1.7×** (not 2.5×).
+
 `--no-async-scheduling` costs some single-stream throughput (4.5→3.0; async
 scheduling overlaps GPU gaps) but **concurrency more than recovers it**: N=4 runs
 ~11 tok/s aggregate and is rock-solid.

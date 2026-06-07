@@ -5,9 +5,10 @@ RoCE/IB) — same cross-VM wire as the TP scenarios there, but **pipeline-parall
 = one pipeline stage, one activation handoff per token) instead of **tensor-parallel** (each
 layer split, all-reduce every layer).
 
-- **Status:** ✅ verified 2026-06-06 — **PP beats TP ~2.3–2.5× on cross-VM IB**:
-  single-stream **7.63 tok/s** (TP ~3.0), N=4 aggregate **24.97 tok/s** (TP ~11). Output
-  correct, no hang. See [RESULTS.md](RESULTS.md).
+- **Status:** ✅ verified 2026-06-06; **re-benched 2026-06-07 on vllm-venv** — **PP beats TP ~1.7× on
+  cross-VM IB**: single-stream **7.32 tok/s** (TP 4.41), N=4 aggregate **24.95 tok/s** (TP 15.03). Output
+  correct, no hang. (The earlier "2.5×" used a pre-gemv TP baseline of ~3.0 — see RESULTS "Correction".)
+  See [RESULTS.md](RESULTS.md).
 - **The crossover:** single-VM ([p2p-direct-pp2](../p2p-direct-pp2)) → **TP wins** (fast
   Infinity-Fabric, PP's bubble loses); cross-VM IB (here) → **PP wins** (slow link, TP's
   per-layer all-reduce dominates, PP sends one handoff/token). **Rule: PP for slow

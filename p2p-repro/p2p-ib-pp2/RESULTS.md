@@ -1,6 +1,6 @@
 # RESULTS — p2p-ib-pp2 (PP=2 across two VMs over RoCE/IB)
 
-**THE headline: on the slow cross-VM IB link, PP beats TP ~2.3–2.5×.** This is the
+**THE headline: on the slow cross-VM IB link, PP beats TP ~1.7×** (re-benched on vllm-venv 2026-06-07; the original 2.5× compared a post-gemv PP against a pre-gemv TP — see **Correction** below). This is the
 crossover that the single-VM [p2p-direct-pp2](../p2p-direct-pp2) control predicted —
 single-VM TP wins, cross-VM PP wins.
 
@@ -30,12 +30,20 @@ Clean streaming decode (TTFT-cancelled, `ignore_eos`, warmed):
 
 | metric | TP=2 ([27b-graph](../p2p-ib/27b-graph)) | **PP=2 (this)** | PP vs TP |
 |---|--:|--:|--:|
-| single-stream decode | ~3.0 | **7.63** | **2.5× faster** |
-| N=4 per-client decode | ~2.8 | **6.24** | ~2.2× |
-| N=4 aggregate decode | ~11 | **24.97** | **2.3× faster** |
+| single-stream decode | 4.41 | **7.32** | **1.66×** |
+| N=4 aggregate decode | 15.03 | **24.95** | **1.66×** |
 
-(PP@GDR0 single-stream 7.63 even beats the [27b-gdr](../p2p-ib/27b-gdr) TP **GDR-1** run at
-~5.4–6.2 — PP's comm savings outweigh GDR here.)
+**Correction (re-benched 2026-06-07 on vllm-venv).** The original table claimed 2.5× by comparing PP
+**7.63** against TP **~3.0** — but that TP 3.0 was measured 2026-06-03/04 **before the gemv INT8 patch**,
+while PP 7.63 was post-gemv (apples-to-oranges). Re-running BOTH on vllm-venv with the same
+TTFT-cancelled method (2048 ctx, seqs 8, cudagraph [1,2,4]): PP **7.32** / TP **4.41** single, **24.95** /
+**15.03** N=4 agg → a clean **~1.66×** both ways. PP reproduced its own 7.63/24.97 (so PP was always
+right); only the stale pre-gemv TP needed fixing. PP still wins cross-VM — TP's per-layer all-reduce over
+the slow IB link is the cost — just ~1.7×, not 2.5×.
+
+(PP single-stream **7.32 still beats even the [27b-gdr](../p2p-ib/27b-gdr) TP GDR-1** run — 5.60 on
+vllm-venv after fixing its missing `NCCL_NET_GDR_LEVEL=SYS`/`NCCL_DMABUF_ENABLE=1` envs — by **~1.31×**:
+PP's 1-handoff/token comm savings outweigh GDR's small-transfer win on single-stream decode.)
 
 ## Why PP wins cross-VM (and loses single-VM)
 
