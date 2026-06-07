@@ -48,7 +48,10 @@ interconnect** — and the matrix shows the **crossover** cleanly: single-VM
 (4.41 / 15.03, re-benched on vllm-venv 2026-06-07) because TP's per-layer all-reduce is throttled by the slow IB link. **Rule: PP for
 cross-VM/slow interconnects, TP for single-VM.** Corollary (single-VM SHM vs P2P): PP is nearly
 **transport-insensitive** (PP@P2P 14.21 ≈ PP@SHM 14.40) while TP is not (TP@P2P 16.20 vs TP@SHM
-15.41) — same root cause (PP sends 1 handoff/token; TP all-reduces every layer).
+15.41) — same root cause (PP sends 1 handoff/token; TP all-reduces every layer). (Re-tested
+2026-06-07 on vllm-venv: TP@P2P **16.18** ≈ TP@SHM **16.75** — on TCG the single-VM P2P/SHM gap is
+within the ±10 % noise floor for TP too, so the −5 % TP edge isn't robust; the PP transport-insensitivity
+is the cleaner signal.)
 
 ## Layout
 

@@ -1,6 +1,10 @@
 # RESULTS — p2p-shm (single-VM dual-GPU, host SHM transport)
 
 **Verified:** 2026-06-05, host `10.103.11.199`.
+**Re-tested:** 2026-06-07 on `/home/ubuntu/vllm-venv` (standardized off `/data/vllm0.21-pt2.11`) —
+single-stream **16.75 tok/s** (3-run mean), N=4 agg 53.78, `via SHM/direct/direct` confirmed. It landed
+≈ p2p-direct's 16.18 this run, so the documented −5% P2P edge below is **within the TCG noise floor**
+(single runs bounce 15–17) — single-VM P2P≈SHM for single-stream. Venv swap throughput-neutral.
 **Kernel:** `Image-6.19.5-p2p-all`, guest `iommu.passthrough=1`.
 **Model / mode:** `Qwen3.6-27B-Quark-W8A8-INT8`, TP=2, cudagraph `FULL_DECODE_ONLY` `[1,2,4]`, gemv INT8 patch.
 **Transport:** `via SHM/direct/direct` — split topo `rccl-topo-split.xml` + `--disable-custom-all-reduce`, async-scheduling on.

@@ -17,7 +17,7 @@ export LD_PRELOAD=/home/ubuntu/librccl-rebuilt.so.1.0
 export PYTHONPATH=/home/ubuntu:${PYTHONPATH:-}
 export VLLM_RPC_TIMEOUT=7200000
 export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200
-exec /data/vllm0.21-pt2.11/bin/python -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python -m vllm.entrypoints.openai.api_server \
     --model /data/Qwen3.6-27B-Quark-W8A8-INT8 \
     --served-model-name qwen3_6-27b-int8 \
     --quantization quark \

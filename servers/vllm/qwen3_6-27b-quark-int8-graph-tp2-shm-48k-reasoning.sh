@@ -34,7 +34,7 @@ export NCCL_SHM_DISABLE=0
 # Logging
 export NCCL_DEBUG=INFO
 
-exec /data/vllm0.21-pt2.11/bin/python -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python -m vllm.entrypoints.openai.api_server \
     --model /data/Qwen3.6-27B-Quark-W8A8-INT8 \
     --served-model-name qwen3_6-27b-quark-int8 \
     --dtype bfloat16 \

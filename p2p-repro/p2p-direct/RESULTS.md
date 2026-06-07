@@ -1,6 +1,9 @@
 # RESULTS — p2p-direct (single-VM dual-GPU, P2P/IPC)
 
 **Verified:** 2026-06-05, host `10.103.11.199`.
+**Re-tested:** 2026-06-07 on `/home/ubuntu/vllm-venv` (standardized off `/data/vllm0.21-pt2.11`) —
+single-stream **16.18 tok/s** (3-run mean; ≈ the 16.20 below), N=4 agg 53.07, `via P2P/IPC` confirmed.
+Venv swap is throughput-neutral.
 **Kernel:** `Image-6.19.5-p2p-all` (unified; `cpu_supports_p2pdma` hack), guest cmdline `iommu.passthrough=1`.
 **Model / mode:** `Qwen3.6-27B-Quark-W8A8-INT8`, TP=2, cudagraph `FULL_DECODE_ONLY` `[1,2,4]`, gemv INT8 patch.
 **Transport:** `via P2P/IPC` (+ `GDR 1`), `NCCL_IB_DISABLE=1`, `NCCL_TOPO_FILE=rccl-topo.xml`.

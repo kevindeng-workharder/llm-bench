@@ -1,5 +1,7 @@
 #!/bin/bash
 # vLLM graph mode, DUAL 7900 XTX (TP=2), Qwen3.6-27B Quark W8A8-INT8.
+# VENV 2026-06-07: runs on /home/ubuntu/vllm-venv. Was /data/ai-2.11 (vLLM 0.19) which CANNOT run
+# quark-int8 (needs >=0.21) -> stale/broken; fixed. Single-VM TP, covered-by-equivalence w/ p2p-direct.
 #
 # Quark = AMD's quantizer; this is W8A8 INT8 (per-tensor int8 weights + int8
 # activations, pack_method=reorder). Same qwen3_5 multimodal checkpoint, so
@@ -17,7 +19,7 @@ export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200
 # (vllm-serve-env.sh default) deadlocks under concurrent allgather at N>=2
 # (600s NCCL watchdog -> EngineDeadError). SHM is verified working + faster.
 export NCCL_SHM_DISABLE=0
-exec /data/ai-2.11/bin/python -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python -m vllm.entrypoints.openai.api_server \
     --model /data/Qwen3.6-27B-Quark-W8A8-INT8 \
     --served-model-name qwen3_6-27b-quark-int8 \
     --dtype bfloat16 \
