@@ -114,9 +114,10 @@ and will *look* like concurrency regresses — it does not.
 
 ## Environment
 
-This launcher runs on **`/home/ubuntu/vllm-venv`** (the writable rootfs venv), not
-`/data/ai-2.11` like the other launchers, because the multimodal bring-up baked
-changes into it:
+This launcher runs on **`/home/ubuntu/vllm-venv`** (the writable rootfs venv). The multimodal
+bring-up baked changes into it (so it led the migration); **as of 2026-06-07 all 27B-Quark launchers
+are standardized to vllm-venv** — only the AWQ/FP8 variants still use the older `/data/ai-2.11`
+(vLLM 0.19). The baked changes:
 
 - the **gemv INT8 patch** is baked into `.../compressed_tensors/triton_scaled_mm.py`
   (M==1 `_gemv_i8_kernel` / M≤8 `_gemv_dot_kernel`) — no `sitecustomize` override

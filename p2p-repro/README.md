@@ -80,7 +80,9 @@ p2p-repro/
 
 ## Shared prerequisites (all scenarios)
 
-- ROCm 7.2.3 prefix at `/opt/rocm-riscv-7.2.3`, vLLM venv at `/data/vllm0.21-pt2.11`.
+- ROCm 7.2.3 prefix at `/opt/rocm-riscv-7.2.3`. vLLM venv: **all 27B-Quark launchers use
+  `/home/ubuntu/vllm-venv`** (rootfs; gemv patch + pyav; standardized 2026-06-07). `/data/vllm0.21-pt2.11`
+  is the older shared venv (now only the 4B base p2p-ib); AWQ/FP8 use `/data/ai-2.11` (vLLM 0.19).
 - `common/vllm-serve-env.sh` deployed to `/home/ubuntu/vllm-serve-env.sh` on every guest.
 - For single-VM scenarios: the matching `rccl-topo*.xml` (P2P vs split) next to the env.
 - `HSA_FORCE_FINE_GRAIN_PCIE=1` (already in the shared env) — required for any P2P path.
