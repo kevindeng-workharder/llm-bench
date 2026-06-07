@@ -19,7 +19,7 @@ export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200
 # Enable SHM transport for RCCL (socket deadlocks concurrent allgather; SHM
 # verified on the AWQ sibling). TP=1 barely uses it, kept for consistency.
 export NCCL_SHM_DISABLE=0
-exec /data/ai-2.11/bin/python -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python -m vllm.entrypoints.openai.api_server \
     --model /data/Qwen3.6-27B-FP8 \
     --served-model-name qwen3_6-27b-fp8 \
     --dtype bfloat16 \

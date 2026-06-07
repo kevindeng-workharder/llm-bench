@@ -18,7 +18,7 @@ export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200
 # N>=2 (600s NCCL watchdog -> EngineDeadError). docker/launchers/server-env.sh notes
 # SHM works and is ~2.2x faster than socket on this stack. Override it back on.
 export NCCL_SHM_DISABLE=0
-exec /data/ai-2.11/bin/python -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python -m vllm.entrypoints.openai.api_server \
     --model /data/Qwen3.6-27B-AWQ \
     --served-model-name qwen3_6-27b-awq \
     --dtype float16 \

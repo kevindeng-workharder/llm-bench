@@ -12,7 +12,7 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../../vllm-serve/server-env.sh" 2>/dev/null || \
-    source /home/ubuntu/vllm-serve/server-env.sh
+    source /home/ubuntu/vllm-serve-env.sh
 
 # Bind to card1 only (card0 is the llama.cpp server's).
 # IMPORTANT: HIP_VISIBLE_DEVICES alone makes torch see zero devices on this
@@ -24,7 +24,7 @@ export ROCR_VISIBLE_DEVICES=1
 # gemma-4 path quirks observed during chat-gemma4 setup:
 export TOKENIZERS_PARALLELISM=false
 
-exec /home/ubuntu/ai-2.10/bin/python3 -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python3 -m vllm.entrypoints.openai.api_server \
     --model /data/gemma-4-E2B-it \
     --served-model-name gemma4-e2b \
     --dtype float16 \

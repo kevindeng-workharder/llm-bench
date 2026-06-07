@@ -25,7 +25,7 @@ export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=7200
 # under concurrent allgather at N>=2 (600s NCCL watchdog -> EngineDeadError);
 # SHM is verified working on the AWQ sibling (N=8 = 34 t/s vs socket crash).
 export NCCL_SHM_DISABLE=0
-exec /data/ai-2.11/bin/python -m vllm.entrypoints.openai.api_server \
+exec /home/ubuntu/vllm-venv/bin/python -m vllm.entrypoints.openai.api_server \
     --model /data/Qwen3.6-27B-FP8 \
     --served-model-name qwen3_6-27b-fp8 \
     --dtype bfloat16 \
