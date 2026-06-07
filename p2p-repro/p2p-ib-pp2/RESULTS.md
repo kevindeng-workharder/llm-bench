@@ -80,5 +80,39 @@ The `--mm-encoder-attn-backend TRITON_ATTN` flag is **load-bearing**: without it
 back to `TORCH_SDPA` (O(N²) math — *"Torch was not compiled with memory efficient attention"*),
 and the startup profile_run's dummy-ViT encode grinds for *hours* on the follower (cache stops
 growing, GPU 0 %, stuck in `F.scaled_dot_product_attention`) — that stalled the first
-multimodal attempt. With TRITON_ATTN (O(N)) there is no stall. (Video would additionally need
-`pyav` on VM2 — the follower lacks it — so only image is verified here.)
+multimodal attempt. With TRITON_ATTN (O(N)) there is no stall. (Video additionally needs `pyav`
+on VM2 — absent on the old `/data` venv, **now present** after the venv switch + the VM2 reclone,
+so video is verified below.)
+
+## Video (multimodal) also verified on cross-VM PP — on vllm-venv (2026-06-07)
+
+Re-ran cross-VM PP with the **video** path on (`--limit-mm-per-prompt '{"image":1,"video":1}'`,
+`--mm-encoder-attn-backend TRITON_ATTN`, `--media-io-kwargs '{"video":{"backend":"pyav"}}'`). A
+**Sintel trailer** (`sintel_trailer.mp4`, 7.6 MB) was described **scene-by-scene and correctly**:
+*"THE BLENDER FOUNDATION presents" → a young woman with short red hair (concerned, grey tank top,
+tattoo) → a ruined city at sunset with a dragon flying → dragon close-ups → the woman looking up
+in awe/fear → a dark action shot (dragon diving) → the "SINTEL" logo → "COMING SOON"*, then
+synthesized the plot (*"a young woman encountering a dragon … a fantasy world with ancient
+ruins"*). Real **temporal, multi-scene** understanding, not a single-frame caption. **11,716**
+video prompt tokens (≈ the ~13K processor cap), 512 generated, **230.8 s** end-to-end (pyav
+decode + ViT + 11.7K prefill + gen).
+
+### Video memory: the PP leader can't do the single-VM 40960 window
+
+Single-VM TP shards the vision tower across both GPUs; **PP puts the whole vision tower +
+embedding on the leader (stage 0)** on top of its layer half. At the single-VM video window
+(max-model-len 40960, seqs 2, util 0.85) the leader had only **2.63 GiB** free for KV →
+`ValueError: No available memory for the cache blocks` (startup OOM). Fix: **seqs 1**,
+**max-model-len 16384** (one ~13K video + gen fits), **util 0.93** → **4.56 GiB** KV =
+**51,200-token** pool (3.12× @16K). The cross-VM-PP video window is smaller than single-VM-TP's —
+a leader-memory constraint, not a capability gap.
+
+### Venv: standardized to /home/ubuntu/vllm-venv
+
+All cross-VM PP launchers now run on the rootfs **`vllm-venv`** (gemv patch + **pyav**), not
+`/data/vllm0.21-pt2.11` (no pyav → the follower couldn't decode video). VM2 gets vllm-venv by
+being a **clone of the VM1 25.10 rootfs**. The follower must be launched as
+`vllm-venv/bin/python …/vllm-venv/bin/vllm serve` — `vllm-venv/bin/vllm`'s shebang points at the
+old `/data` python, so a plain path swap silently runs the wrong venv (caught during this work).
+PP single-stream text decode on vllm-venv = **6.98 tok/s** (≈ the 7.63 on `/data` — the venv swap
+is throughput-neutral).

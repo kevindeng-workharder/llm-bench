@@ -28,10 +28,10 @@ exec /home/ubuntu/vllm-venv/bin/python /home/ubuntu/vllm-venv/bin/vllm serve /da
     --served-model-name qwen3_6-27b-int8 \
     --quantization quark \
     --dtype bfloat16 \
-    --max-model-len 2048 \
-    --max-num-seqs 8 \
-    --max-num-batched-tokens 2048 \
-    --gpu-memory-utilization 0.85 \
+    --max-model-len 16384 \
+    --max-num-seqs 1 \
+    --max-num-batched-tokens 16384 \
+    --gpu-memory-utilization 0.93 \
     --pipeline-parallel-size 2 \
     --nnodes 2 \
     --node-rank 1 \
@@ -41,7 +41,10 @@ exec /home/ubuntu/vllm-venv/bin/python /home/ubuntu/vllm-venv/bin/vllm serve /da
     --trust-remote-code \
     --no-enable-prefix-caching \
     --no-async-scheduling \
-    --limit-mm-per-prompt '{"image":0,"video":0}' \
+    --limit-mm-per-prompt '{"image":1,"video":1}' \
+    --mm-processor-kwargs '{"max_pixels":200704}' \
+    --mm-encoder-attn-backend TRITON_ATTN \
+    --media-io-kwargs '{"video":{"backend":"pyav"}}' \
     --disable-custom-all-reduce \
-    --compilation-config '{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4],"max_cudagraph_capture_size":4,"cudagraph_num_of_warmups":0}' \
+    --compilation-config '{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1],"max_cudagraph_capture_size":1,"cudagraph_num_of_warmups":0}' \
     --headless
