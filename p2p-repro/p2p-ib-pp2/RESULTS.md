@@ -75,6 +75,11 @@ PP trades per-layer **all-reduce** for **one activation handoff per stage bounda
 
 ## Multimodal (image) also verified on cross-VM PP
 
+> **Re-confirmed on vllm-venv 2026-06-07** (the original run below was on `/data`): the same
+> red-circle + blue-square PIL test → *"a solid red circle … upper left … a solid blue square …
+> lower right … white background"*, all shapes/colors/positions correct (228 prompt tokens, 68 s).
+> So image — like text and video — is verified on vllm-venv cross-VM PP.
+
 Re-ran the same cross-VM PP with the vision path **on** — `--limit-mm-per-prompt
 '{"image":1,"video":0}'`, **`--mm-encoder-attn-backend TRITON_ATTN`** (the O(N) ViT fix),
 `max_pixels 200704`. A PIL test image (red circle upper-left + blue square lower-right) was
