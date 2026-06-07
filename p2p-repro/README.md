@@ -39,14 +39,16 @@ one handoff/stage) instead of tensor-parallel (split each layer, all-reduce/laye
 |---|---|---|
 | cross-VM IB | [p2p-ib](p2p-ib/) ✅ | [p2p-ib-pp2](p2p-ib-pp2/) ✅ — **PP WINS ~2.3–2.5×** (7.63 single / 24.97 agg vs TP 3.0 / 11) |
 | single-VM P2P | [p2p-direct](p2p-direct/) ✅ | [p2p-direct-pp2](p2p-direct-pp2/) ✅ — PP **~8–19 % slower** (single-VM → TP wins) |
-| single-VM SHM | [p2p-shm](p2p-shm/) ✅ | *(redundant with p2p-direct-pp2 — both single-VM; skipped)* |
+| single-VM SHM | [p2p-shm](p2p-shm/) ✅ | [p2p-shm-pp2](p2p-shm-pp2/) ✅ — 14.40 single (≈ P2P-PP 14.21; PP transport-insensitive) < TP 15.41 |
 
 PP trades per-layer all-reduce for one per-stage handoff, so it only pays off on a **slow
 interconnect** — and the matrix shows the **crossover** cleanly: single-VM
 ([p2p-direct-pp2](p2p-direct-pp2/): 14.21 single) PP is ~8–19 % *slower* than TP, but cross-VM IB
 ([p2p-ib-pp2](p2p-ib-pp2/): 7.63 single / 24.97 agg@N=4) PP is **~2.3–2.5× faster** than TP
 (3.0 / 11) because TP's per-layer all-reduce is throttled by the slow IB link. **Rule: PP for
-cross-VM/slow interconnects, TP for single-VM.**
+cross-VM/slow interconnects, TP for single-VM.** Corollary (single-VM SHM vs P2P): PP is nearly
+**transport-insensitive** (PP@P2P 14.21 ≈ PP@SHM 14.40) while TP is not (TP@P2P 16.20 vs TP@SHM
+15.41) — same root cause (PP sends 1 handoff/token; TP all-reduces every layer).
 
 ## Layout
 
@@ -69,7 +71,8 @@ p2p-repro/
 │   ├── README.md  RESULTS.md  start_shm.sh  rccl-topo-split.xml  bench.py
 ├── p2p-direct-pp2/            ★ archived 2026-06-06 (p2p-direct × PP — TP wins on single-VM)
 │   └── README.md  RESULTS.md   (launcher in ../servers/vllm/...-graph-pp2.sh — no topo XML)
-└── p2p-ib-pp2/                ★ archived 2026-06-06 (cross-VM IB × PP — PP WINS ~2.3-2.5× over TP)
+├── p2p-ib-pp2/                ★ archived 2026-06-06 (cross-VM IB × PP — PP WINS ~2.3-2.5× over TP)
+└── p2p-shm-pp2/               ★ archived 2026-06-06 (single-VM SHM × PP — ≈ P2P-PP; PP transport-insensitive)
 ```
 
 ## Shared prerequisites (all scenarios)
