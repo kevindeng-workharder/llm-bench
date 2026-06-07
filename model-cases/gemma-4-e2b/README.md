@@ -1,7 +1,7 @@
 # gemma-4-E2B-it on vllm-venv (single-VM, TP=1, one GPU)
 
 Google **Gemma-4 E2B** (served fp16), single-GPU — a small non-Qwen model, useful
-as a fast sanity case for the rootfs. **Serves ✅** after a two-line RDNA3 LDS fix
+as a fast sanity case for the rootfs. **Serves ✅** after a one-line RDNA3 LDS fix
 to vLLM's Triton attention (see below) — on the **same `vllm-venv` (0.21)** as every
 other case, needing nothing from the old `ai-2.10` venv.
 
@@ -16,13 +16,15 @@ other case, needing nothing from the old `ai-2.10` venv.
 - **The real blocker — gfx1100 64 KB LDS:** gemma's attention uses **head_dim 256**
   (Qwen uses 128). vLLM's V1 ROCm TRITON_ATTN kernel staged its K+V tiles in **66,560 B
   of LDS > the 65,536 B (64 KB) gfx1100 limit** → `OutOfResources` → first inference 500.
-  (V1 ROCm has no working TORCH_SDPA fallback; it ignores `VLLM_ATTENTION_BACKEND`.)
-- **Fix:** [`apply-gfx1100-lds-fix.py`](apply-gfx1100-lds-fix.py) — two scoped, idempotent
-  edits to `triton_unified_attention.py`, **both gated on `head_size >= 256`** so Qwen
-  (128-dim) is untouched:
-  1. `_get_tile_size`: **TILE_SIZE 32 → 16** for head_dim≥256 bf16 (the real fix — ~halves
-     the K+V tiles, which alone hit ~64 KB; clears the limit with ~16 KB margin).
-  2. `BLOCK_M` cap at `max(8, nqpkv)` (belt-and-suspenders; not sufficient alone).
-- **Status:** ✅ **verified serving** on gfx1100. First request 48 s (JIT-compiles the
-  TILE_SIZE=16 kernel), output correct ("capital of France" → "Paris"), decode
-  **12.4 tok/s**. See [RESULTS.md](RESULTS.md).
+  (V1 ROCm has no working TORCH_SDPA fallback; it ignores `VLLM_ATTENTION_BACKEND`, so
+  the kernel itself had to change.)
+- **Fix:** [`apply-gfx1100-lds-fix.py`](apply-gfx1100-lds-fix.py) — **one** scoped, idempotent
+  edit to `triton_unified_attention.py`, gated on `head_size >= 256` (Qwen 128-dim untouched)
+  and bf16 (fp8 needs TILE≥32): **`_get_tile_size` returns TILE_SIZE 16 instead of 32**.
+  This ~halves the K+V tiles (which alone hit ~64 KB at TILE_SIZE=32) → clears the limit with
+  ~16 KB margin. *(A BLOCK_M cap was tried first but only shaved 512 B — proving TILE_SIZE is
+  the only real lever; it was reverted, see RESULTS.)*
+- **Status:** ✅ **verified serving** on gfx1100 at upstream BLOCK_M=16 + TILE_SIZE=16. Output
+  correct ("capital of France" → "Paris"); **steady-state decode 21.7 tok/s** (512 tokens, flat
+  across the run, TTFT 1.2 s warm) — in line with the historical ~20 tok/s for Gemma-4-E4B.
+  See [RESULTS.md](RESULTS.md).
