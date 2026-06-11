@@ -7,7 +7,10 @@
 # Scheduler / no async copy event). Watchdog left at default (no ASYNC=0 hack).
 set -eu
 source /home/ubuntu/vllm-serve-env.sh
-export RCCL_FORCE_ENABLE_DMABUF=1   # GDR: bypass RCCL gzip /proc/config.gz dmabuf check (rocmwrap.cc); needs the unified kernel for the real pci_p2pdma registration
+# RCCL_FORCE_ENABLE_DMABUF no longer needed (de-bypassed 2026-06-11): librccl now
+# detects gzip /proc/config.gz, reads plaintext /boot/config, finds CONFIG_PCI_P2PDMA
+# itself (rocmwrap.cc gzip fix); kernel P2P is gated on the DT property
+# riscv,p2pdma-capable (no return-true hack). See rocm-riscv-build ROCm-RCCL.patch.
 export NCCL_NET_GDR_LEVEL=SYS       # GDR: allow GPUDirect over the cross-root PCIe path (else NCCL stays GDR 0); matches tools/run_nccl_test.sh
 export NCCL_DMABUF_ENABLE=1
 # riscv64: use ROCm clang for Triton's C launcher compile. Stock gcc (cc1)

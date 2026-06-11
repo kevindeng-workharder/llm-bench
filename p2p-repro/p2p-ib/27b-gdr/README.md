@@ -8,56 +8,81 @@ VRAM** instead of bouncing through host memory. This closes the parent README's
 - **Status:** ✅ verified 2026-06-05; **re-confirmed 2026-06-07 on vllm-venv** — NCCL reports
   **`use ring PXN 0 GDR 1`** + `via NET/IB/0/GDRDMA`, correct output, **5.60 tok/s** single /
   19.89 N=4 (TTFT-cancelled). The re-test caught that the vLLM launcher also needs
-  **`NCCL_NET_GDR_LEVEL=SYS`** + **`NCCL_DMABUF_ENABLE=1`** (not just `RCCL_FORCE_ENABLE_DMABUF=1`),
+  **`NCCL_NET_GDR_LEVEL=SYS`** + **`NCCL_DMABUF_ENABLE=1`** (legit NCCL settings, not a bypass),
   or it silently runs `GDR 0` — now fixed in the launchers. See [RESULTS.md](RESULTS.md).
 - **Why it had been failing:** TWO independent software bugs, both required to
   fix — one kernel, one RCCL. The HANDOFF that blamed "QEMU PCIe topology" was
   wrong; nothing about the topology changed.
 
-## Root cause (two bugs, both must be fixed)
+> **Update 2026-06-11 — de-bypassed:** the two bugs are now fixed *properly* in
+> the upstream sources, replacing the earlier workarounds. The kernel no longer
+> uses a `return true` hack — `cpu_supports_p2pdma()` is **device-tree gated** on
+> the `riscv,p2pdma-capable` property (QEMU's `beta_dtb.c` writes it; qemu_soc
+> `feature/gpu-p2p-dmabuf` commit `cd9e4d366`). RCCL no longer needs
+> `RCCL_FORCE_ENABLE_DMABUF=1` — `rocmwrap.cc` now detects the gzip magic, reads
+> plaintext `/boot/config-$(uname -r)` instead, finds `CONFIG_PCI_P2PDMA=y`
+> itself, and logs **`DMA_BUF Support Enabled`** (rocm-riscv-build
+> `dual-version-support` commit `44181b6`, shipped as `patches/7.2.3/ROCm-RCCL.patch`).
+> RCCL also now reports its true `arch="riscv64"` (no more arm64 spoof). The
+> `FORCE` env var has been **removed from all launchers**. The only NCCL settings
+> still needed are the two legit ones below.
 
-**1. Kernel — missing `cpu_supports_p2pdma()` patch.**
+## Root cause (two bugs, both now fixed properly — no workarounds)
+
+**1. Kernel — `cpu_supports_p2pdma()` now device-tree gated.**
 `Image-6.19.5-p2p-ib` was built from the *stock* `qemu_soc_vendor` tree. On
 RISC-V, stock `drivers/pci/p2pdma.c:cpu_supports_p2pdma()` returns `false`
 (the `true` branch is `#ifdef CONFIG_X86`), so `pci_p2pdma_distance()` hits
 `map_through_host_bridge` (p2pdma.c:767) and returns **< 0** for any pair of
 passthrough devices on different PCIe segments — including GPU↔NIC. amdgpu's
 dma-buf exporter (`amdgpu_dma_buf.c:99`) then sets `peer2peer = false`, so the
-*real* `ibv_reg_dmabuf_mr` of GPU VRAM fails. The dual-GPU kernel had a 1-line
-hack forcing `return true`; the IB kernel didn't. The check is device-agnostic,
-so the same hack enables GPU↔NIC exactly like GPU↔GPU.
+*real* `ibv_reg_dmabuf_mr` of GPU VRAM fails. The earlier dual-GPU kernel forced
+`return true` with a 1-line hack; that was a workaround. **It is now done
+properly:** the kernel enables P2P only when the PCIe host-bridge node carries
+the device-tree property **`riscv,p2pdma-capable`** (written by QEMU's
+`beta_dtb.c`), and returns `false` otherwise — no unconditional hack. The check
+is device-agnostic, so the DT-gated path enables GPU↔NIC exactly like GPU↔GPU.
+Shipped on qemu_soc `feature/gpu-p2p-dmabuf` (commit `cd9e4d366`, pushed).
 
 > Note: the mlx5/uverbs dma-buf *capability* was always present —
 > [`tools/dmabuf_test.c`](tools/dmabuf_test.c) (a bad-fd `ibv_reg_dmabuf_mr`)
 > returns `EBADF`, not `EOPNOTSUPP`. The kernel just refused the *real* P2P
-> registration because of the missing hack.
+> registration until the host bridge advertised `riscv,p2pdma-capable`.
 
-**2. RCCL — reads gzipped `/proc/config.gz` as plaintext.**
+**2. RCCL — now detects gzip and reads plaintext `/boot/config` itself.**
 `ROCm-RCCL-7.2.3/src/misc/rocmwrap.cc`: after the HSA dma-buf query *passes*,
 RCCL "double-checks" by reading the kernel config; its path list has
-`/proc/config.gz` **first** and reads it with `fopen`+`fgets` as **plain text**
-(it's gzip-compressed) → never matches `CONFIG_PCI_P2PDMA=y` → `break`s the loop
-**before** ever trying `/boot/config-$(uname -r)` → prints
-`DMA_BUF_SUPPORT Failed due to OS kernel support`. So even a perfectly correct
-kernel is rejected. **Fix:** `export RCCL_FORCE_ENABLE_DMABUF=1` (rocmwrap.cc:154
-skips the whole file check; the HSA query alone then governs).
+`/proc/config.gz` **first** and the old code read it with `fopen`+`fgets` as
+**plain text** (it's gzip-compressed) → never matched `CONFIG_PCI_P2PDMA=y` →
+`break`s the loop **before** ever trying `/boot/config-$(uname -r)` → printed
+`DMA_BUF_SUPPORT Failed due to OS kernel support`, so even a perfectly correct
+kernel was rejected. **It is now done properly:** `rocmwrap.cc` detects the gzip
+magic (`0x1f 0x8b`), skips that file, continues to the plaintext
+`/boot/config-$(uname -r)`, finds `CONFIG_PCI_P2PDMA=y` on its own, and prints
+**`DMA_BUF Support Enabled`**. **`RCCL_FORCE_ENABLE_DMABUF` is no longer needed
+and has been removed from every launcher.** Shipped as
+`patches/7.2.3/ROCm-RCCL.patch` on rocm-riscv-build `dual-version-support`
+(commit `44181b6`, pushed). The same patch series also makes RCCL report its
+real `arch="riscv64"` instead of spoofing `arm64` (`xml.cc` /
+`graph.h:NCCL_TOPO_CPU_ARCH_RISCV` / `topo.cc` / `paths.cc` → `PATH_PXB`).
 
 **3. NCCL — GDR level must be forced to `SYS` (found 2026-06-07).** Even with bugs 1+2 fixed, the
 vLLM launcher logged `GDR 0` until it *also* exported **`NCCL_NET_GDR_LEVEL=SYS`** +
-**`NCCL_DMABUF_ENABLE=1`**. The cross-root GPU↔NIC pair exceeds NCCL's default GDR distance, so GDR is
-disabled for that link unless the level is forced to `SYS`. [`tools/run_nccl_test.sh`](tools/run_nccl_test.sh)
-always set these (hence it showed `GDR 1`); the vLLM launcher had only `RCCL_FORCE_ENABLE_DMABUF=1` and so
-silently fell back to host-bounce. With all **three** env vars the vLLM run logs `use ring PXN 0 GDR 1` +
-`via NET/IB/0/GDRDMA`. So the guest launchers differ from `27b-graph` by **three** env vars, not one.
+**`NCCL_DMABUF_ENABLE=1`**. These are legit NCCL settings, not a bypass. The cross-root GPU↔NIC pair
+exceeds NCCL's default GDR distance, so GDR is disabled for that link unless the level is forced to `SYS`.
+[`tools/run_nccl_test.sh`](tools/run_nccl_test.sh) always set these (hence it showed `GDR 1`); the vLLM
+launcher lacked them and so silently fell back to host-bounce. With both env vars the vLLM run logs
+`use ring PXN 0 GDR 1` + `via NET/IB/0/GDRDMA`. So the guest launchers differ from `27b-graph` by **two**
+env vars, not one.
 
 ## Files
 
 | file | role |
 |------|------|
-| `start_vm1_leader.sh` | LEADER (node 0) = `27b-graph` leader **+ `RCCL_FORCE_ENABLE_DMABUF=1`** → VM1 `/home/ubuntu/graph27b_vm.sh` |
-| `start_vm2_follower_headless.sh` | FOLLOWER (node 1) = same + the env var → VM2 `/home/ubuntu/graph27b_vm.sh` |
+| `start_vm1_leader.sh` | LEADER (node 0) = `27b-graph` leader **+ `NCCL_NET_GDR_LEVEL=SYS` + `NCCL_DMABUF_ENABLE=1`** → VM1 `/home/ubuntu/graph27b_vm.sh` |
+| `start_vm2_follower_headless.sh` | FOLLOWER (node 1) = same two env vars → VM2 `/home/ubuntu/graph27b_vm.sh` |
 | `host/build_kernel_unified.sh` | build `Image-6.19.5-p2p-all`: applies the patch to the Beta-SoC kernel tree + the proven `-p2p-ib` `.config` base + gcc-15. Gates on a config + hack verify. |
-| `host/kernel-6.19.5-p2p.patch` | **the actual P2P kernel patch.** `cpu_supports_p2pdma()→true` (`p2pdma.c` — the GDR lever), amdgpu `is_large_bar`+P2P-DBG (`amdgpu_device.c`), `kfd_topology.c`, and the Beta-SoC DWC PCIe controller Kconfig/Makefile. Applied onto a `linux-6.19.5` tree that already carries the qemu_soc Beta-SoC patches. |
+| `host/kernel-6.19.5-p2p.patch` | **historical archive of the old `return true` P2P kernel patch** (superseded 2026-06-11 by the DT-gated version in qemu_soc `cd9e4d366`). `cpu_supports_p2pdma()→true` (`p2pdma.c` — the GDR lever), amdgpu `is_large_bar`+P2P-DBG (`amdgpu_device.c`), `kfd_topology.c`, and the Beta-SoC DWC PCIe controller Kconfig/Makefile. Applied onto a `linux-6.19.5` tree that already carries the qemu_soc Beta-SoC patches. The current stack gates on the device-tree property `riscv,p2pdma-capable` (written by qemu `beta_dtb.c`) instead of unconditionally returning true. |
 | `host/kernel-6.19.5-p2p-ib.config` | the proven `-p2p-ib` kernel `.config` used as the build base (`PCI_P2PDMA=y` `HSA_AMD_P2P=y` `ZONE_DEVICE=y` + full IB). guest.config lacked `ZONE_DEVICE`, so it could *not* be the base — `olddefconfig` would drop `PCI_P2PDMA`. |
 | `host/install_unified_modules.sh` | offline loop-mount both guest images and `rsync`+`depmod` the unified modules (incl. `mlx5_ib`, `amdgpu`) |
 | `host/start_vm{1,2}_64g_unified_bg.sh` | QEMU launchers pointing `-kernel` at `Image-6.19.5-p2p-all` (serial→file, detachable) |
@@ -103,8 +128,8 @@ ssh -p 2225 ubuntu@127.0.0.1 'cd ~ && setsid bash graph27b_vm.sh </dev/null >/tm
 
 ```bash
 # NCCL transport line — the verdict
-ssh -p 2224 ubuntu@127.0.0.1 'grep -aE "DMA_BUF|use ring PXN|force enabled" /tmp/vllm_vm1.log | tail -4'
-#   want:  DMA_BUF Support is force enabled ... (RCCL_FORCE_ENABLE_DMABUF=1)
+ssh -p 2224 ubuntu@127.0.0.1 'grep -aE "DMA_BUF|use ring PXN" /tmp/vllm_vm1.log | tail -4'
+#   want:  DMA_BUF Support Enabled ...                    <-- rocmwrap.cc gzip fix, no FORCE env
 #          Connected all rings, use ring PXN 0 GDR 1      <-- GDR 1, no "DMA_BUF_SUPPORT Failed"
 
 # end-to-end + steady-state decode
