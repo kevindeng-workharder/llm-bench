@@ -100,6 +100,17 @@ echo <host-sudo-pw> | sudo -S bash host/install_unified_modules.sh
 # --- HOST: boot the two IB guests on the unified kernel ---
 sudo setsid bash host/start_vm1_64g_unified_bg.sh &     # GPU 23:00 + NIC port0, ssh 2224
 sudo setsid bash host/start_vm2_64g_unified_bg.sh &     # GPU 43:00 + NIC port1, ssh 2225
+# ⚠️ de-bypass qemu (2026-06-13): these scripts launch
+#    /home/ubuntu/qemu_p2p_fresh/qemu-10.0.2-beta/build/qemu-system-riscv64  (+ -L .../build/pc-bios)
+#    — the ONLY build whose hw/riscv/beta_dtb.c writes the `riscv,p2pdma-capable` DT property
+#    (qemu_soc cd9e4d366; see qemu_p2p_fresh/CHANGELOG.md [2026-06-10]). The older
+#    p2p_build/qemu-10.0.2 does NOT write it, so the DT-gated kernel keeps p2pdma OFF at runtime
+#    while RCCL (reading CONFIG_PCI_P2PDMA=y) forces GDR -> the runtime ibv_reg_dmabuf_mr of GPU
+#    VRAM fails -> cross-VM GDR HANGS hard (NOT a clean host-bounce fallback). -L is needed
+#    because that build has no compiled-in datadir (else "failed to find romfile efi-virtio.rom").
+#    Confirm the prop after boot — use find -L, /proc/device-tree is a SYMLINK (plain find misses it):
+#      ssh -p 2224 ubuntu@127.0.0.1 'find -L /proc/device-tree -name "*p2pdma*"'   # expect 4 hits
+#    Fast GDR check (~45s, no model load): tools/run_nccl_test.sh -> "use ring PXN 0 GDR 1".
 
 # --- per-guest: assign IB IP (does NOT auto-assign — mlx5 link comes up ~178s,
 #     after networkd) and mount the model image ---
